@@ -92,6 +92,14 @@ export default function Products() {
     return cat ? cat.name : 'Unknown';
   };
 
+  const getImageUrl = (product) => {
+    if (product.image_url) {
+      return product.image_url;
+    }
+    // Generate avatar from product name
+    return `https://ui-avatars.com/api/?name=${encodeURIComponent(product.name)}&size=300&background=3b82f6&color=fff&font-size=20&bold=true`;
+  };
+
   return (
     <div>
       {/* Page Header */}
@@ -306,19 +314,15 @@ export default function Products() {
               onClick={() => handleProductClick(product)}
             >
               {/* Product Image */}
-              <div className="w-full h-48 bg-gray-100 rounded-lg mb-3 flex items-center justify-center overflow-hidden">
-                {product.image_url ? (
-                  <img
-                    src={product.image_url}
-                    alt={product.name}
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      e.target.src = 'https://via.placeholder.com/300x200?text=No+Image';
-                    }}
-                  />
-                ) : (
-                  <span className="text-gray-400 text-sm">No Image</span>
-                )}
+              <div className="w-full h-48 bg-gradient-to-br from-primary-100 to-primary-200 rounded-lg mb-3 flex items-center justify-center overflow-hidden">
+                <img
+                  src={getImageUrl(product)}
+                  alt={product.name}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(product.name)}&size=300&background=3b82f6&color=fff&font-size=20&bold=true`;
+                  }}
+                />
               </div>
               
               {/* Product Info */}
@@ -412,19 +416,15 @@ export default function Products() {
                 </button>
               </div>
               
-              <div className="w-full h-64 bg-gray-100 rounded-lg mb-4 flex items-center justify-center overflow-hidden">
-                {selectedProduct.image_url ? (
-                  <img
-                    src={selectedProduct.image_url}
-                    alt={selectedProduct.name}
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      e.target.src = 'https://via.placeholder.com/600x400?text=No+Image';
-                    }}
-                  />
-                ) : (
-                  <span className="text-gray-400">No Image</span>
-                )}
+              <div className="w-full h-64 bg-gradient-to-br from-primary-100 to-primary-200 rounded-lg mb-4 flex items-center justify-center overflow-hidden">
+                <img
+                  src={getImageUrl(selectedProduct)}
+                  alt={selectedProduct.name}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(selectedProduct.name)}&size=600&background=3b82f6&color=fff&font-size=30&bold=true`;
+                  }}
+                />
               </div>
               
               <div className="space-y-3">

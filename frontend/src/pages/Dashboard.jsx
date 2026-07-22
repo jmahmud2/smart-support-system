@@ -8,6 +8,8 @@ export default function Dashboard() {
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState(null);
   const [recentTickets, setRecentTickets] = useState([]);
+  const [saving, setSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
   // Fetch stats and recent tickets on load
   useEffect(() => {
@@ -36,6 +38,7 @@ export default function Dashboard() {
 
     setAnalyzing(true);
     setAnalysisResult(null);
+    setSaveSuccess(false);
 
     try {
       const response = await apiClient.post('/support/analyze', {
@@ -48,6 +51,50 @@ export default function Dashboard() {
     } finally {
       setAnalyzing(false);
     }
+  };
+
+  const handleSaveTicket = async () => {
+    if (!analysisResult) return;
+
+    setSaving(true);
+    setSaveSuccess(false);
+
+    try {
+      const ticketData = {
+        customer_name: 'Walk-in Customer',
+        customer_email: 'customer@example.com',
+        customer_message: message,
+        product_id: null
+      };
+
+      const response = await apiClient.post('/support/tickets', ticketData);
+      
+      // Show success
+      setSaveSuccess(true);
+      
+      // Refresh recent tickets
+      fetchDashboardData();
+      
+      // Add the new ticket to recent tickets list
+      setRecentTickets(prev => [response.data, ...prev.slice(0, 4)]);
+      
+      // Auto-clear success message after 3 seconds
+      setTimeout(() => {
+        setSaveSuccess(false);
+      }, 3000);
+      
+    } catch (error) {
+      console.error('Error saving ticket:', error);
+      alert('Failed to save ticket. Please try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleClear = () => {
+    setMessage('');
+    setAnalysisResult(null);
+    setSaveSuccess(false);
   };
 
   const getBadgeColor = (type, value) => {
@@ -133,16 +180,26 @@ export default function Dashboard() {
               onChange={(e) => setMessage(e.target.value)}
             />
             
-            <button
-              className="btn btn-primary w-full"
-              onClick={handleAnalyze}
-              disabled={analyzing || !message.trim()}
-            >
-              {analyzing ? 'Analyzing...' : 'Analyze Message'}
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button
+                className="btn btn-primary flex-1"
+                onClick={handleAnalyze}
+                disabled={analyzing || !message.trim()}
+              >
+                {analyzing ? 'Analyzing...' : 'Analyze Message'}
+              </button>
+              {message && (
+                <button
+                  className="btn btn-secondary"
+                  onClick={handleClear}
+                >
+                  Clear
+                </button>
+              )}
+            </div>
 
             {analysisResult && (
-              <div className="mt-4 p-4 bg-gray-50 rounded-lg space-y-2">
+              <div className="mt-4 p-4 bg-gray-50 rounded-lg space-y-3">
                 <div className="flex flex-wrap gap-2">
                   <span className={`badge ${getBadgeColor('sentiment', analysisResult.sentiment)}`}>
                     {analysisResult.sentiment}
@@ -156,9 +213,32 @@ export default function Dashboard() {
                 </div>
                 <p className="text-sm font-medium text-gray-700">Intent: {analysisResult.intent}</p>
                 <p className="text-sm text-gray-600">{analysisResult.reasoning}</p>
-                <div className="mt-2 p-3 bg-white rounded border border-gray-200">
+                <div className="p-3 bg-white rounded border border-gray-200">
                   <p className="text-sm text-gray-700">{analysisResult.response}</p>
                 </div>
+                
+                {/* Save Ticket Button */}
+                <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-200">
+                  <button
+                    className="btn btn-primary flex-1"
+                    onClick={handleSaveTicket}
+                    disabled={saving}
+                  >
+                    {saving ? 'Saving...' : '💾 Save as Ticket'}
+                  </button>
+                </div>
+                
+                {/* Save Success Message */}
+                {saveSuccess && (
+                  <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                    <p className="text-green-700 text-sm font-medium">
+                      ✅ Ticket saved successfully!
+                    </p>
+                    <p className="text-green-600 text-sm">
+                      The analysis has been saved to the database.
+                    </p>
+                  </div>
+                )}
               </div>
             )}
           </div>
