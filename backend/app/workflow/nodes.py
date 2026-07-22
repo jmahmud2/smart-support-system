@@ -1,0 +1,187 @@
+"""
+Workflow node implementations for the customer support system.
+Each node performs a specific task in the processing pipeline.
+"""
+
+from .state import SupportState
+from .llm import call_llm
+
+
+def classify_intent(state: SupportState) -> dict:
+    """
+    Classify the customer's intent using the LLM.
+
+    Args:
+        state: Current workflow state containing the customer message
+
+    Returns:
+        Dictionary with the classified intent
+    """
+    message = state.get("customer_message", "")
+
+    prompt = f"""
+    Classify this customer message into ONE category:
+    - refund: Request for money back or return
+    - shipping: Delivery, tracking, or shipping questions
+    - product_inquiry: Questions about features, specs, or availability
+    - complaint: Negative feedback about a product or service
+    - general: Everything else
+
+    Message: {message}
+
+    Return only the category name.
+    """
+
+    # Get intent from LLM
+    intent = call_llm(prompt).strip().lower()
+
+    # Validate and default to 'general' if the response is invalid
+    valid_intents = ["refund", "shipping", "product_inquiry", "complaint", "general"]
+    if intent not in valid_intents:
+        intent = "general"
+
+    return {"intent": intent}
+
+
+def analyze_sentiment(state: SupportState) -> dict:
+    """
+    Analyze the sentiment of the customer message using the LLM.
+
+    Args:
+        state: Current workflow state
+
+    Returns:
+        Dictionary with the analyzed sentiment
+    """
+    message = state.get("customer_message", "")
+
+    prompt = f"""
+    Analyze the sentiment of this message.
+    Choose one: positive, neutral, or negative.
+
+    Message: {message}
+
+    Return only the sentiment word.
+    """
+
+    # Get sentiment from LLM
+    sentiment = call_llm(prompt).strip().lower()
+
+    # Validate and default to 'neutral'
+    valid_sentiments = ["positive", "neutral", "negative"]
+    if sentiment not in valid_sentiments:
+        sentiment = "neutral"
+
+    return {"sentiment": sentiment}
+
+
+def assign_priority(state: SupportState) -> dict:
+    """
+    Assign a priority level based on the intent and sentiment.
+
+    Priority rules:
+    - urgent: Negative sentiment with complaint or refund request
+    - high: Negative sentiment or complaint/refund request
+    - medium: Shipping inquiries
+    - low: Everything else
+
+    Args:
+        state: Current workflow state
+
+    Returns:
+        Dictionary with the assigned priority
+    """
+    intent = state.get("intent", "general")
+    sentiment = state.get("sentiment", "neutral")
+
+    # Apply priority rules
+    if sentiment == "negative" and intent in ["complaint", "refund"]:
+        priority = "urgent"
+    elif sentiment == "negative":
+        priority = "high"
+    elif intent in ["complaint", "refund"]:
+        priority = "high"
+    elif intent == "shipping":
+        priority = "medium"
+    else:
+        priority = "low"
+
+    return {"priority": priority}
+
+
+def generate_response(state: SupportState) -> dict:
+    """
+    Generate an AI-powered response to the customer.
+
+    Args:
+        state: Current workflow state
+
+    Returns:
+        Dictionary with the generated response
+    """
+    message = state.get("customer_message", "")
+    intent = state.get("intent", "general")
+    sentiment = state.get("sentiment", "neutral")
+    priority = state.get("priority", "low")
+
+    prompt = f"""
+    Write a customer support response.
+
+    Customer message: {message}
+    Intent: {intent}
+    Sentiment: {sentiment}
+    Priority: {priority}
+
+    Requirements:
+    - Be professional and empathetic
+    - Address the specific concern
+    - Provide clear next steps
+    - Keep to 3-5 sentences
+    - If sentiment is negative, start with an apology
+
+    Return only the response text.
+    """
+
+    # Generate response using LLM
+    response = call_llm(prompt)
+    return {"response": response}
+
+
+def check_escalation(state: SupportState) -> dict:
+    """
+    Determine if the ticket should be escalated to a human agent.
+
+    Escalation triggers:
+    1. Priority is 'urgent'
+    2. Negative sentiment with complaint intent
+    3. Urgent keywords detected in the message
+
+    Args:
+        state: Current workflow state
+
+    Returns:
+        Dictionary with escalation decision and reasoning
+    """
+    intent = state.get("intent", "general")
+    sentiment = state.get("sentiment", "neutral")
+    priority = state.get("priority", "low")
+    message = state.get("customer_message", "").lower()
+
+    # Keywords that indicate urgency
+    urgent_keywords = [
+        "urgent", "immediately", "asap", "emergency",
+        "furious", "terrible", "horrible", "disappointed"
+    ]
+
+    # Check escalation conditions
+    if priority == "urgent":
+        return {"escalate": True, "reasoning": "Urgent priority requires human attention"}
+
+    if sentiment == "negative" and intent == "complaint":
+        return {"escalate": True, "reasoning": "Negative complaint may need human intervention"}
+
+    if any(keyword in message for keyword in urgent_keywords):
+        return {"escalate": True, "reasoning": "Urgent language detected in message"}
+
+    # Default: no escalation needed
+    return {"escalate": False, "reasoning": "Auto-response is sufficient"}

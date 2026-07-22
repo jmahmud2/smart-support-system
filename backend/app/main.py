@@ -1,7 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.routing import APIRoute
-from .routes import products, categories, stats
+from .routes import products, categories, stats, support
 from .database.database import init_db
 import os
 from dotenv import load_dotenv
@@ -17,9 +16,6 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Add this line to handle trailing slashes
-app.router.redirect_slashes = True  # <-- ADD THIS LINE
-
 # CORS
 app.add_middleware(
     CORSMiddleware,
@@ -33,6 +29,7 @@ app.add_middleware(
 app.include_router(products.router, prefix="/api/products", tags=["products"])
 app.include_router(categories.router, prefix="/api/categories", tags=["categories"])
 app.include_router(stats.router, prefix="/api/stats", tags=["stats"])
+app.include_router(support.router, prefix="/api/support", tags=["support"])  # ✅ Uncommented
 
 @app.get("/")
 async def root():
