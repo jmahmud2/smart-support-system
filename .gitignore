@@ -48,3 +48,10 @@ package-lock.json
 # Misc
 *.tmp
 *.temp
+
+# Data files (large CSVs)
+*.csv
+*.xlsx
+*.json
+backend/scripts/data/*.csv
+backend/scripts/data/*.xlsx
