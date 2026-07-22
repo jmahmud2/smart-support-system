@@ -44,7 +44,8 @@ async def analyze_message(
             priority=result.get('priority', 'low'),
             response=result.get('response', ''),
             escalate=result.get('escalate', False),
-            reasoning=result.get('reasoning', '')
+            reasoning=result.get('reasoning', ''),
+            recommended_products=result.get('recommended_products', [])
         )
 
     except Exception as e:

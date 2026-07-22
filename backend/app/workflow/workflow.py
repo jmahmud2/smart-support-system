@@ -9,9 +9,9 @@ from .nodes import (
     classify_intent,
     analyze_sentiment,
     assign_priority,
+    recommend_products,
     generate_response,
     check_escalation,
-    recommend_products,
 )
 
 
@@ -23,7 +23,7 @@ def build_graph():
     1. classify_intent - Determine what the customer wants
     2. analyze_sentiment - Understand the customer's emotional state
     3. assign_priority - Set urgency level
-    4. recommend_products - Suggest relevant products (optional)
+    4. recommend_products - Suggest relevant products
     5. generate_response - Create an AI response
     6. check_escalation - Decide if a human should intervene
 

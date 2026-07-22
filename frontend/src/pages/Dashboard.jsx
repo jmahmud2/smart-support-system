@@ -14,7 +14,6 @@ export default function Dashboard() {
   const [aiSummary, setAiSummary] = useState(null);
   const [showSummary, setShowSummary] = useState(false);
 
-  // Fetch stats and recent tickets on load
   useEffect(() => {
     fetchDashboardData();
     fetchSentimentTrends();
@@ -23,11 +22,9 @@ export default function Dashboard() {
   const fetchDashboardData = async () => {
     setLoading(true);
     try {
-      // Fetch stats
       const statsResponse = await apiClient.get('/support/stats');
       setStats(statsResponse.data);
 
-      // Fetch recent tickets
       const ticketsResponse = await apiClient.get('/support/tickets?limit=5');
       setRecentTickets(ticketsResponse.data);
     } catch (error) {
@@ -259,6 +256,21 @@ export default function Dashboard() {
                 </div>
                 <p className="text-sm font-medium text-gray-700">Intent: {analysisResult.intent}</p>
                 <p className="text-sm text-gray-600">{analysisResult.reasoning}</p>
+                
+                {/* Product Recommendations */}
+                {analysisResult.recommended_products && analysisResult.recommended_products.length > 0 && (
+                  <div className="mt-2">
+                    <p className="text-sm font-medium text-gray-700">📦 Recommended Products:</p>
+                    <div className="flex flex-wrap gap-2 mt-1">
+                      {analysisResult.recommended_products.map((product, index) => (
+                        <span key={index} className="badge badge-blue">
+                          {product}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
                 <div className="p-3 bg-white rounded border border-gray-200">
                   <p className="text-sm text-gray-700">{analysisResult.response}</p>
                 </div>
@@ -343,7 +355,6 @@ export default function Dashboard() {
           <button
             className="btn btn-primary btn-sm"
             onClick={fetchAiSummary}
-            disabled={showSummary && aiSummary}
           >
             {showSummary ? 'Refresh Summary' : 'Generate Summary'}
           </button>

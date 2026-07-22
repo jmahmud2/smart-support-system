@@ -3,7 +3,7 @@ State definition for the LangGraph customer support workflow.
 Defines the data structure that flows through the workflow nodes.
 """
 
-from typing import List, TypedDict, Optional, List
+from typing import TypedDict, Optional, List
 
 
 class SupportState(TypedDict):
@@ -19,6 +19,7 @@ class SupportState(TypedDict):
         escalate: Flag indicating if the ticket should be escalated to a human
         reasoning: Explanation for the escalation decision
         product_id: Optional reference to a related product
+        recommended_products: Optional list of recommended product names
     """
     customer_message: str
     intent: Optional[str]

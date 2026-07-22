@@ -4,7 +4,7 @@ Defines request/response models for the support API.
 """
 
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 
 
@@ -53,3 +53,4 @@ class SupportAnalysisResponse(BaseModel):
     response: str
     escalate: bool
     reasoning: str
+    recommended_products: Optional[List[str]] = []

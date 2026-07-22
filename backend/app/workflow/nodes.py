@@ -32,10 +32,7 @@ def classify_intent(state: SupportState) -> dict:
     Return only the category name.
     """
 
-    # Get intent from LLM
     intent = call_llm(prompt).strip().lower()
-
-    # Validate and default to 'general' if the response is invalid
     valid_intents = ["refund", "shipping", "product_inquiry", "complaint", "general"]
     if intent not in valid_intents:
         intent = "general"
@@ -64,10 +61,7 @@ def analyze_sentiment(state: SupportState) -> dict:
     Return only the sentiment word.
     """
 
-    # Get sentiment from LLM
     sentiment = call_llm(prompt).strip().lower()
-
-    # Validate and default to 'neutral'
     valid_sentiments = ["positive", "neutral", "negative"]
     if sentiment not in valid_sentiments:
         sentiment = "neutral"
@@ -94,7 +88,6 @@ def assign_priority(state: SupportState) -> dict:
     intent = state.get("intent", "general")
     sentiment = state.get("sentiment", "neutral")
 
-    # Apply priority rules
     if sentiment == "negative" and intent in ["complaint", "refund"]:
         priority = "urgent"
     elif sentiment == "negative":
@@ -107,6 +100,46 @@ def assign_priority(state: SupportState) -> dict:
         priority = "low"
 
     return {"priority": priority}
+
+
+def recommend_products(state: SupportState) -> dict:
+    """
+    Recommend products based on the customer message.
+
+    Args:
+        state: Current workflow state
+
+    Returns:
+        Dictionary with recommended products list
+    """
+    message = state.get("customer_message", "")
+    intent = state.get("intent", "general")
+
+    # Only recommend products for product inquiries or general questions
+    if intent not in ["product_inquiry", "general"]:
+        return {"recommended_products": []}
+
+    prompt = f"""
+    Based on this customer message, recommend 3 relevant products.
+    Return ONLY a comma-separated list of product names.
+    If no products are relevant, return "None".
+
+    Message: {message}
+
+    Example format: MacBook Pro, Dell XPS 15, Lenovo ThinkPad
+    """
+
+    response = call_llm(prompt)
+
+    recommendations = []
+    if response and response.strip().lower() != "none":
+        # Split by comma and clean up
+        for item in response.split(','):
+            clean_item = item.strip()
+            if clean_item:
+                recommendations.append(clean_item)
+
+    return {"recommended_products": recommendations[:3]}
 
 
 def generate_response(state: SupportState) -> dict:
@@ -123,6 +156,15 @@ def generate_response(state: SupportState) -> dict:
     intent = state.get("intent", "general")
     sentiment = state.get("sentiment", "neutral")
     priority = state.get("priority", "low")
+    recommended_products = state.get("recommended_products", [])
+
+    # Build prompt with recommendations if available
+    recommendations_text = ""
+    if recommended_products:
+        recommendations_text = f"""
+        Recommended products: {', '.join(recommended_products)}
+        Consider mentioning these if relevant to the customer's inquiry.
+        """
 
     prompt = f"""
     Write a customer support response.
@@ -131,6 +173,7 @@ def generate_response(state: SupportState) -> dict:
     Intent: {intent}
     Sentiment: {sentiment}
     Priority: {priority}
+    {recommendations_text}
 
     Requirements:
     - Be professional and empathetic
@@ -138,11 +181,11 @@ def generate_response(state: SupportState) -> dict:
     - Provide clear next steps
     - Keep to 3-5 sentences
     - If sentiment is negative, start with an apology
+    - If recommendations are provided, mention them naturally
 
     Return only the response text.
     """
 
-    # Generate response using LLM
     response = call_llm(prompt)
     return {"response": response}
 
@@ -167,13 +210,11 @@ def check_escalation(state: SupportState) -> dict:
     priority = state.get("priority", "low")
     message = state.get("customer_message", "").lower()
 
-    # Keywords that indicate urgency
     urgent_keywords = [
         "urgent", "immediately", "asap", "emergency",
         "furious", "terrible", "horrible", "disappointed"
     ]
 
-    # Check escalation conditions
     if priority == "urgent":
         return {"escalate": True, "reasoning": "Urgent priority requires human attention"}
 
@@ -183,34 +224,4 @@ def check_escalation(state: SupportState) -> dict:
     if any(keyword in message for keyword in urgent_keywords):
         return {"escalate": True, "reasoning": "Urgent language detected in message"}
 
-    # Default: no escalation needed
     return {"escalate": False, "reasoning": "Auto-response is sufficient"}
-
-def recommend_products(state: SupportState) -> dict:
-    """Recommend products based on the customer message"""
-    message = state.get("customer_message", "")
-    intent = state.get("intent", "general")
-    
-    # Only recommend products for product inquiries or general questions
-    if intent not in ["product_inquiry", "general"]:
-        return {"recommended_products": []}
-    
-    prompt = f"""
-    Based on this customer message, recommend 3 relevant products.
-    Return ONLY a comma-separated list of product names.
-    If no products are relevant, return "None".
-    
-    Message: {message}
-    """
-    
-    response = call_llm(prompt)
-    
-    # Parse the response
-    recommendations = []
-    if response and response.strip().lower() != "none":
-        for item in response.split(','):
-            clean_item = item.strip()
-            if clean_item:
-                recommendations.append(clean_item)
-    
-    return {"recommended_products": recommendations[:3]}
