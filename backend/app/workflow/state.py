@@ -3,7 +3,7 @@ State definition for the LangGraph customer support workflow.
 Defines the data structure that flows through the workflow nodes.
 """
 
-from typing import TypedDict, Optional
+from typing import List, TypedDict, Optional, List
 
 
 class SupportState(TypedDict):
@@ -28,3 +28,4 @@ class SupportState(TypedDict):
     escalate: bool
     reasoning: Optional[str]
     product_id: Optional[int]
+    recommended_products: Optional[List[str]]

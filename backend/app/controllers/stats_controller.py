@@ -1,49 +1,71 @@
+"""
+Stats controller for handling business logic related to statistics.
+"""
+
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
-from ..database.models import Product as ProductModel
-from ..database.models import Category as CategoryModel
-from ..database.models import SupportTicket as SupportTicketModel
+from ..database.models import Product, Category, SupportTicket
+
 
 class StatsController:
+    """Handles statistics operations."""
+
     @staticmethod
     def get_stats(db: Session) -> dict:
         """Get aggregate stats"""
         
         # Product stats
-        total_products = db.query(func.count(ProductModel.id)).scalar()
-        total_revenue = db.query(func.sum(ProductModel.price * ProductModel.stock)).scalar() or 0
-        avg_price = db.query(func.avg(ProductModel.price)).scalar() or 0
-        
+        total_products = db.query(func.count(Product.id)).scalar()
+        total_revenue = db.query(func.sum(Product.price * Product.stock)).scalar() or 0
+        avg_price = db.query(func.avg(Product.price)).scalar() or 0
+
         # Category with most products
         top_category = db.query(
-            ProductModel.category_id,
-            func.count(ProductModel.id).label('count')
-        ).group_by(ProductModel.category_id).order_by(
-            func.count(ProductModel.id).desc()
+            Product.category_id,
+            func.count(Product.id).label('count')
+        ).group_by(Product.category_id).order_by(
+            func.count(Product.id).desc()
         ).first()
-        
+
         top_category_name = None
         if top_category:
-            category = db.query(CategoryModel).filter(
-                CategoryModel.id == top_category[0]
-            ).first()
+            category = db.query(Category).filter(Category.id == top_category[0]).first()
             if category:
                 top_category_name = category.name
-        
+
         # Ticket stats
-        total_tickets = db.query(func.count(SupportTicketModel.id)).scalar()
-        open_tickets = db.query(func.count(SupportTicketModel.id)).filter(
-            SupportTicketModel.status == "new"
+        total_tickets = db.query(func.count(SupportTicket.id)).scalar()
+        open_tickets = db.query(func.count(SupportTicket.id)).filter(
+            SupportTicket.status == "new"
         ).scalar()
-        
+
         # Intent breakdown
         intents = db.query(
-            SupportTicketModel.intent,
-            func.count(SupportTicketModel.id)
-        ).group_by(SupportTicketModel.intent).all()
+            SupportTicket.intent,
+            func.count(SupportTicket.id)
+        ).group_by(SupportTicket.intent).all()
         intent_breakdown = {intent: count for intent, count in intents if intent}
-        
+
+        # Sentiment breakdown
+        sentiments = db.query(
+            SupportTicket.sentiment,
+            func.count(SupportTicket.id)
+        ).group_by(SupportTicket.sentiment).all()
+        sentiment_breakdown = {sentiment: count for sentiment, count in sentiments if sentiment}
+
+        # Escalation stats
+        escalated_count = db.query(func.count(SupportTicket.id)).filter(
+            SupportTicket.escalate == True
+        ).scalar()
+
+        # Status breakdown
+        statuses = db.query(
+            SupportTicket.status,
+            func.count(SupportTicket.id)
+        ).group_by(SupportTicket.status).all()
+        status_breakdown = {status: count for status, count in statuses if status}
+
         return {
             "total_products": total_products,
             "total_revenue": round(total_revenue, 2),
@@ -51,5 +73,9 @@ class StatsController:
             "top_category": top_category_name,
             "total_tickets": total_tickets,
             "open_tickets": open_tickets,
-            "intent_breakdown": intent_breakdown
+            "intent_breakdown": intent_breakdown,
+            "sentiment_breakdown": sentiment_breakdown,
+            "escalated_count": escalated_count,
+            "status_breakdown": status_breakdown,
+            "escalation_rate": round((escalated_count / total_tickets * 100) if total_tickets > 0 else 0, 2)
         }

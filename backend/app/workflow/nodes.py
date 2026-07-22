@@ -185,3 +185,32 @@ def check_escalation(state: SupportState) -> dict:
 
     # Default: no escalation needed
     return {"escalate": False, "reasoning": "Auto-response is sufficient"}
+
+def recommend_products(state: SupportState) -> dict:
+    """Recommend products based on the customer message"""
+    message = state.get("customer_message", "")
+    intent = state.get("intent", "general")
+    
+    # Only recommend products for product inquiries or general questions
+    if intent not in ["product_inquiry", "general"]:
+        return {"recommended_products": []}
+    
+    prompt = f"""
+    Based on this customer message, recommend 3 relevant products.
+    Return ONLY a comma-separated list of product names.
+    If no products are relevant, return "None".
+    
+    Message: {message}
+    """
+    
+    response = call_llm(prompt)
+    
+    # Parse the response
+    recommendations = []
+    if response and response.strip().lower() != "none":
+        for item in response.split(','):
+            clean_item = item.strip()
+            if clean_item:
+                recommendations.append(clean_item)
+    
+    return {"recommended_products": recommendations[:3]}

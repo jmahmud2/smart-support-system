@@ -10,10 +10,14 @@ export default function Dashboard() {
   const [recentTickets, setRecentTickets] = useState([]);
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [sentimentTrends, setSentimentTrends] = useState(null);
+  const [aiSummary, setAiSummary] = useState(null);
+  const [showSummary, setShowSummary] = useState(false);
 
   // Fetch stats and recent tickets on load
   useEffect(() => {
     fetchDashboardData();
+    fetchSentimentTrends();
   }, []);
 
   const fetchDashboardData = async () => {
@@ -30,6 +34,26 @@ export default function Dashboard() {
       console.error('Error fetching dashboard data:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchSentimentTrends = async () => {
+    try {
+      const response = await apiClient.get('/support/sentiment-trends?days=7');
+      setSentimentTrends(response.data);
+    } catch (error) {
+      console.error('Error fetching sentiment trends:', error);
+    }
+  };
+
+  const fetchAiSummary = async () => {
+    try {
+      const response = await apiClient.get('/support/summary?days=7');
+      setAiSummary(response.data);
+      setShowSummary(true);
+    } catch (error) {
+      console.error('Error fetching AI summary:', error);
+      alert('Failed to generate AI summary');
     }
   };
 
@@ -69,16 +93,10 @@ export default function Dashboard() {
 
       const response = await apiClient.post('/support/tickets', ticketData);
       
-      // Show success
       setSaveSuccess(true);
-      
-      // Refresh recent tickets
       fetchDashboardData();
-      
-      // Add the new ticket to recent tickets list
       setRecentTickets(prev => [response.data, ...prev.slice(0, 4)]);
       
-      // Auto-clear success message after 3 seconds
       setTimeout(() => {
         setSaveSuccess(false);
       }, 3000);
@@ -166,6 +184,34 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* Sentiment Trends Cards */}
+      {sentimentTrends && (
+        <div className="card mb-8">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">📈 Sentiment Distribution</h2>
+          <div className="grid grid-cols-3 gap-4">
+            <div className="text-center p-4 bg-green-50 rounded-lg">
+              <p className="text-sm font-medium text-gray-600">Positive</p>
+              <p className="text-2xl font-bold text-green-600">
+                {sentimentTrends?.distribution?.positive || 0}
+              </p>
+            </div>
+            <div className="text-center p-4 bg-yellow-50 rounded-lg">
+              <p className="text-sm font-medium text-gray-600">Neutral</p>
+              <p className="text-2xl font-bold text-yellow-600">
+                {sentimentTrends?.distribution?.neutral || 0}
+              </p>
+            </div>
+            <div className="text-center p-4 bg-red-50 rounded-lg">
+              <p className="text-sm font-medium text-gray-600">Negative</p>
+              <p className="text-2xl font-bold text-red-600">
+                {sentimentTrends?.distribution?.negative || 0}
+              </p>
+            </div>
+          </div>
+          <p className="text-xs text-gray-500 text-center mt-2">{sentimentTrends?.period}</p>
+        </div>
+      )}
+
       {/* Two Column Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* AI Support Analyzer */}
@@ -234,9 +280,6 @@ export default function Dashboard() {
                     <p className="text-green-700 text-sm font-medium">
                       ✅ Ticket saved successfully!
                     </p>
-                    <p className="text-green-600 text-sm">
-                      The analysis has been saved to the database.
-                    </p>
                   </div>
                 )}
               </div>
@@ -259,7 +302,7 @@ export default function Dashboard() {
           {recentTickets.length === 0 ? (
             <p className="text-gray-500 text-sm">No tickets found</p>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-3 max-h-[400px] overflow-y-auto">
               {recentTickets.map((ticket) => (
                 <div key={ticket.id} className="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
                   <div className="flex items-start justify-between">
@@ -291,6 +334,36 @@ export default function Dashboard() {
             </div>
           )}
         </div>
+      </div>
+
+      {/* AI Summary Section */}
+      <div className="card mt-8">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-gray-900">📊 AI Ticket Summary</h2>
+          <button
+            className="btn btn-primary btn-sm"
+            onClick={fetchAiSummary}
+            disabled={showSummary && aiSummary}
+          >
+            {showSummary ? 'Refresh Summary' : 'Generate Summary'}
+          </button>
+        </div>
+
+        {showSummary && aiSummary ? (
+          <div className="space-y-4">
+            <div className="flex items-center gap-4 text-sm text-gray-600">
+              <span>📅 {aiSummary.period}</span>
+              <span>📋 {aiSummary.total_tickets} tickets analyzed</span>
+            </div>
+            <div className="p-4 bg-gray-50 rounded-lg whitespace-pre-wrap">
+              <p className="text-gray-700">{aiSummary.summary}</p>
+            </div>
+          </div>
+        ) : (
+          <p className="text-gray-500 text-sm">
+            Click "Generate Summary" to get an AI-powered summary of recent tickets.
+          </p>
+        )}
       </div>
 
       {/* Intent Breakdown */}

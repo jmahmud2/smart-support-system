@@ -11,6 +11,7 @@ from .nodes import (
     assign_priority,
     generate_response,
     check_escalation,
+    recommend_products,
 )
 
 
@@ -22,19 +23,20 @@ def build_graph():
     1. classify_intent - Determine what the customer wants
     2. analyze_sentiment - Understand the customer's emotional state
     3. assign_priority - Set urgency level
-    4. generate_response - Create an AI response
-    5. check_escalation - Decide if a human should intervene
+    4. recommend_products - Suggest relevant products (optional)
+    5. generate_response - Create an AI response
+    6. check_escalation - Decide if a human should intervene
 
     Returns:
         A compiled LangGraph StateGraph ready for execution
     """
-    # Initialize the graph with the state schema
     workflow = StateGraph(SupportState)
 
     # Add processing nodes
     workflow.add_node("classify_intent", classify_intent)
     workflow.add_node("analyze_sentiment", analyze_sentiment)
     workflow.add_node("assign_priority", assign_priority)
+    workflow.add_node("recommend_products", recommend_products)
     workflow.add_node("generate_response", generate_response)
     workflow.add_node("check_escalation", check_escalation)
 
@@ -42,7 +44,8 @@ def build_graph():
     workflow.set_entry_point("classify_intent")
     workflow.add_edge("classify_intent", "analyze_sentiment")
     workflow.add_edge("analyze_sentiment", "assign_priority")
-    workflow.add_edge("assign_priority", "generate_response")
+    workflow.add_edge("assign_priority", "recommend_products")
+    workflow.add_edge("recommend_products", "generate_response")
     workflow.add_edge("generate_response", "check_escalation")
     workflow.add_edge("check_escalation", END)
 
@@ -60,7 +63,6 @@ def process_message(message: str) -> dict:
     Returns:
         Complete state dictionary with all analysis results
     """
-    # Build the workflow graph
     graph = build_graph()
 
     # Initialize the state with the customer message
@@ -73,6 +75,7 @@ def process_message(message: str) -> dict:
         "escalate": False,
         "reasoning": None,
         "product_id": None,
+        "recommended_products": [],
     }
 
     # Execute the workflow

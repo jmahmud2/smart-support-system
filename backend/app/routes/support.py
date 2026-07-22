@@ -25,23 +25,13 @@ async def analyze_message(
     request: SupportAnalysisRequest,
     db: Session = Depends(get_db)
 ):
-    """
-    Analyze a customer message without saving to database.
-
-    Args:
-        request: Message and optional product_id
-
-    Returns:
-        AI analysis results
-    """
+    """Analyze a customer message without saving to database."""
     try:
-        # Optional: Validate product_id if provided
         if request.product_id:
             product = db.query(Product).filter(Product.id == request.product_id).first()
             if not product:
                 raise HTTPException(status_code=404, detail="Product not found")
 
-        # Process through workflow
         result = SupportController.analyze_message(
             request.message,
             request.product_id
@@ -66,25 +56,14 @@ async def create_ticket(
     ticket_data: SupportTicketCreate,
     db: Session = Depends(get_db)
 ):
-    """
-    Create a support ticket and run it through AI analysis.
-
-    Args:
-        ticket_data: Customer message and optional details
-
-    Returns:
-        Created support ticket with AI analysis
-    """
+    """Create a support ticket and run it through AI analysis."""
     try:
-        # Optional: Validate product_id if provided
         if ticket_data.product_id:
             product = db.query(Product).filter(Product.id == ticket_data.product_id).first()
             if not product:
                 raise HTTPException(status_code=404, detail="Product not found")
 
-        # Create ticket with AI analysis
         ticket = SupportController.create_ticket(db, ticket_data)
-
         return ticket
 
     except Exception as e:
@@ -99,38 +78,17 @@ async def list_tickets(
     limit: int = Query(50, ge=1, le=100),
     offset: int = Query(0, ge=0)
 ):
-    """
-    List support tickets with optional filters.
-
-    Args:
-        status: Filter by status
-        intent: Filter by intent
-        limit: Number of results per page
-        offset: Pagination offset
-
-    Returns:
-        List of support tickets
-    """
+    """List support tickets with optional filters."""
     tickets = SupportController.get_tickets(db, status, intent, limit, offset)
     return tickets
 
 
 @router.get("/tickets/{ticket_id}", response_model=SupportTicket)
 async def get_ticket(ticket_id: int, db: Session = Depends(get_db)):
-    """
-    Get a specific support ticket.
-
-    Args:
-        ticket_id: Ticket ID
-
-    Returns:
-        Support ticket details
-    """
+    """Get a specific support ticket."""
     ticket = SupportController.get_ticket(db, ticket_id)
-
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
-
     return ticket
 
 
@@ -140,30 +98,53 @@ async def update_ticket_status(
     status: str = Query(..., pattern="^(new|in_progress|resolved|closed)$"),
     db: Session = Depends(get_db)
 ):
-    """
-    Update a ticket's status.
-
-    Args:
-        ticket_id: Ticket ID
-        status: New status
-
-    Returns:
-        Updated ticket
-    """
+    """Update a ticket's status."""
     ticket = SupportController.update_status(db, ticket_id, status)
-
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
-
     return ticket
 
 
 @router.get("/stats")
 async def get_support_stats(db: Session = Depends(get_db)):
-    """
-    Get support ticket statistics.
-
-    Returns:
-        Statistics about support tickets
-    """
+    """Get support ticket statistics."""
     return SupportController.get_stats(db)
+
+
+@router.post("/tickets/{ticket_id}/auto-reply")
+async def send_auto_reply(
+    ticket_id: int,
+    db: Session = Depends(get_db)
+):
+    """Send an AI-generated auto-reply to a ticket."""
+    result = SupportController.auto_reply_to_ticket(db, ticket_id)
+    if not result.get('success'):
+        raise HTTPException(status_code=400, detail=result.get('error'))
+    return result
+
+
+@router.post("/tickets/auto-reply-all")
+async def auto_reply_all_new_tickets(
+    db: Session = Depends(get_db)
+):
+    """Send auto-replies to all new tickets."""
+    result = SupportController.auto_reply_to_all_new_tickets(db)
+    return result
+
+
+@router.get("/sentiment-trends")
+async def get_sentiment_trends(
+    db: Session = Depends(get_db),
+    days: int = Query(7, ge=1, le=30)
+):
+    """Get sentiment trends over time."""
+    return SupportController.get_sentiment_trends(db, days)
+
+
+@router.get("/summary")
+async def get_ai_summary(
+    db: Session = Depends(get_db),
+    days: int = Query(7, ge=1, le=30)
+):
+    """Generate an AI summary of recent tickets."""
+    return SupportController.get_ai_summary(db, days)
