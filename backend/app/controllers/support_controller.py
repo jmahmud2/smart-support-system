@@ -249,3 +249,42 @@ class SupportController:
             'total_tickets': len(tickets),
             'summary': summary
         }
+
+    @staticmethod
+    def assign_ticket(db: Session, ticket_id: int, agent_name: str) -> Optional[SupportTicket]:
+        """Assign a ticket to an agent."""
+        ticket = db.query(SupportTicket).filter(SupportTicket.id == ticket_id).first()
+        if not ticket:
+            return None
+
+        ticket.assigned_to = agent_name
+        db.commit()
+        db.refresh(ticket)
+        return ticket
+
+    @staticmethod
+    def get_tickets_by_agent(
+        db: Session,
+        agent_name: str,
+        status: Optional[str] = None,
+        limit: int = 50,
+        offset: int = 0
+    ) -> List[SupportTicket]:
+        """Get tickets assigned to a specific agent."""
+        query = db.query(SupportTicket).filter(SupportTicket.assigned_to == agent_name)
+
+        if status:
+            query = query.filter(SupportTicket.status == status)
+
+        return query.order_by(SupportTicket.created_at.desc()).offset(offset).limit(limit).all()
+
+    @staticmethod
+    def get_unassigned_tickets(
+        db: Session,
+        limit: int = 50,
+        offset: int = 0
+    ) -> List[SupportTicket]:
+        """Get tickets that haven't been assigned to anyone."""
+        return db.query(SupportTicket).filter(
+            SupportTicket.assigned_to.is_(None)
+        ).order_by(SupportTicket.created_at.desc()).offset(offset).limit(limit).all()

@@ -56,6 +56,9 @@ class SupportTicket(Base):
     # Foreign Keys
     product_id = Column(Integer, ForeignKey("products.id"), nullable=True)
     
+    # Agent Assignment 
+    assigned_to = Column(String, nullable=True)
+    
     # Metadata
     status = Column(String, default="new")  # new, in_progress, resolved, closed
     created_at = Column(DateTime, default=datetime.utcnow)

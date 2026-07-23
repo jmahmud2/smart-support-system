@@ -33,6 +33,7 @@ class SupportTicket(SupportTicketBase):
     status: str = "new"
     created_at: datetime
     resolved_at: Optional[datetime] = None
+    assigned_to: Optional[str] = None  
 
     class Config:
         from_attributes = True

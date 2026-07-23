@@ -167,14 +167,14 @@ async def send_reply(
     ticket = db.query(SupportTicket).filter(SupportTicket.id == ticket_id).first()
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
-    
+
     ticket.response = reply_data.message
     ticket.status = "resolved"
     ticket.resolved_at = datetime.now(timezone.utc)
-    
+
     db.commit()
     db.refresh(ticket)
-    
+
     return {
         "success": True,
         "ticket_id": ticket.id,
@@ -191,5 +191,41 @@ async def get_customer_history(
     tickets = db.query(SupportTicket).filter(
         SupportTicket.customer_email == email
     ).order_by(SupportTicket.created_at.desc()).all()
-    
+
+    return tickets
+
+@router.patch("/tickets/{ticket_id}/assign")
+async def assign_ticket(
+    ticket_id: int,
+    agent_name: str = Query(..., min_length=1),
+    db: Session = Depends(get_db)
+):
+    """Assign a ticket to an agent."""
+    ticket = SupportController.assign_ticket(db, ticket_id, agent_name)
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+    return ticket
+
+
+@router.get("/tickets/assigned/{agent_name}")
+async def get_tickets_by_agent(
+    agent_name: str,
+    status: Optional[str] = Query(None, pattern="^(new|in_progress|resolved|closed)$"),
+    limit: int = Query(50, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    db: Session = Depends(get_db)
+):
+    """Get tickets assigned to a specific agent."""
+    tickets = SupportController.get_tickets_by_agent(db, agent_name, status, limit, offset)
+    return tickets
+
+
+@router.get("/tickets/unassigned")
+async def get_unassigned_tickets(
+    limit: int = Query(50, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    db: Session = Depends(get_db)
+):
+    """Get tickets that haven't been assigned to anyone."""
+    tickets = SupportController.get_unassigned_tickets(db, limit, offset)
     return tickets

@@ -14,6 +14,7 @@ export default function Tickets() {
   // Filter states
   const [statusFilter, setStatusFilter] = useState('');
   const [intentFilter, setIntentFilter] = useState('');
+  const [assignedFilter, setAssignedFilter] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   
   // Pagination
@@ -31,10 +32,19 @@ export default function Tickets() {
   });
   const [submitting, setSubmitting] = useState(false);
 
+  // Agent options for assignment
+  const agentOptions = [
+    'Sarah Johnson',
+    'Michael Chen',
+    'Emily Rodriguez',
+    'David Kim',
+    'Jessica Williams'
+  ];
+
   // Fetch tickets on load and filter changes
   useEffect(() => {
     fetchTickets();
-  }, [statusFilter, intentFilter, offset, limit]);
+  }, [statusFilter, intentFilter, assignedFilter, offset, limit]);
 
   const fetchTickets = async () => {
     setLoading(true);
@@ -57,6 +67,13 @@ export default function Tickets() {
           (ticket.customer_email || '').toLowerCase().includes(search) ||
           (ticket.customer_message || '').toLowerCase().includes(search)
         );
+      }
+      
+      // Filter by assignment status
+      if (assignedFilter === 'unassigned') {
+        ticketsData = ticketsData.filter(ticket => !ticket.assigned_to);
+      } else if (assignedFilter === 'assigned') {
+        ticketsData = ticketsData.filter(ticket => ticket.assigned_to);
       }
       
       setTickets(ticketsData);
@@ -82,6 +99,18 @@ export default function Tickets() {
     } catch (error) {
       console.error('Error updating ticket status:', error);
       alert('Failed to update ticket status');
+    }
+  };
+
+  const handleAssignTicket = async (ticketId, agentName) => {
+    try {
+      await apiClient.patch(`/support/tickets/${ticketId}/assign`, null, {
+        params: { agent_name: agentName }
+      });
+      fetchTickets();
+    } catch (error) {
+      console.error('Error assigning ticket:', error);
+      alert('Failed to assign ticket');
     }
   };
 
@@ -216,7 +245,7 @@ export default function Tickets() {
 
       {/* Filters */}
       <div className="card mb-8">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           {/* Search */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
@@ -274,6 +303,23 @@ export default function Tickets() {
             </select>
           </div>
 
+          {/* Assigned Filter */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Assigned</label>
+            <select
+              className="input"
+              value={assignedFilter}
+              onChange={(e) => {
+                setAssignedFilter(e.target.value);
+                setOffset(0);
+              }}
+            >
+              <option value="">All Tickets</option>
+              <option value="unassigned">Unassigned Only</option>
+              <option value="assigned">Assigned Only</option>
+            </select>
+          </div>
+
           {/* Show per page */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Show</label>
@@ -293,13 +339,14 @@ export default function Tickets() {
         </div>
 
         {/* Clear filters */}
-        {(statusFilter || intentFilter || searchTerm) && (
+        {(statusFilter || intentFilter || assignedFilter || searchTerm) && (
           <div className="mt-4 pt-4 border-t border-gray-200">
             <button
               className="text-sm text-primary-600 hover:text-primary-700"
               onClick={() => {
                 setStatusFilter('');
                 setIntentFilter('');
+                setAssignedFilter('');
                 setSearchTerm('');
                 setOffset(0);
               }}
@@ -332,6 +379,7 @@ export default function Tickets() {
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Priority</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Escalate</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Assigned To</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
@@ -378,8 +426,26 @@ export default function Tickets() {
                       {ticket.escalate ? 'Yes' : 'No'}
                     </span>
                   </td>
+                  <td className="px-4 py-3 text-sm text-gray-500 max-w-[100px] truncate">
+                    {ticket.assigned_to || 'Unassigned'}
+                  </td>
                   <td className="px-4 py-3">
-                    <div className="flex gap-1">
+                    <div className="flex flex-wrap gap-1">
+                      <select
+                        className="text-xs border rounded px-2 py-1 max-w-[80px]"
+                        value={ticket.assigned_to || ''}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          handleAssignTicket(ticket.id, e.target.value);
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <option value="">Unassigned</option>
+                        {agentOptions.map((agent) => (
+                          <option key={agent} value={agent}>{agent}</option>
+                        ))}
+                      </select>
+                      
                       <select
                         className="text-xs border rounded px-2 py-1"
                         value={ticket.status}
@@ -521,12 +587,17 @@ export default function Tickets() {
                   <h2 className="text-xl font-bold text-gray-900">
                     Ticket #{selectedTicket.id}
                   </h2>
-                  <div className="flex items-center gap-2 mt-1">
+                  <div className="flex items-center gap-2 mt-1 flex-wrap">
                     <span className="text-sm text-gray-600">{selectedTicket.customer_name || 'Anonymous'}</span>
                     <span className="text-sm text-gray-400">•</span>
                     <span className="text-sm text-gray-600">{selectedTicket.customer_email || 'No email'}</span>
                     <span className="text-xs text-gray-400 ml-2">
                       ({getTimeAgo(selectedTicket.created_at)})
+                    </span>
+                  </div>
+                  <div className="mt-1">
+                    <span className="text-xs text-gray-500">
+                      Assigned to: {selectedTicket.assigned_to || 'Unassigned'}
                     </span>
                   </div>
                 </div>
@@ -571,6 +642,25 @@ export default function Tickets() {
                       {selectedTicket.escalate ? 'Yes' : 'No'}
                     </span>
                   </div>
+                </div>
+
+                {/* Assign in Modal */}
+                <div>
+                  <p className="text-sm text-gray-500 mb-1">Assign to Agent</p>
+                  <select
+                    className="input max-w-[200px]"
+                    value={selectedTicket.assigned_to || ''}
+                    onChange={(e) => {
+                      const newAgent = e.target.value;
+                      handleAssignTicket(selectedTicket.id, newAgent);
+                      setSelectedTicket({...selectedTicket, assigned_to: newAgent});
+                    }}
+                  >
+                    <option value="">Unassigned</option>
+                    {agentOptions.map((agent) => (
+                      <option key={agent} value={agent}>{agent}</option>
+                    ))}
+                  </select>
                 </div>
                 
                 <div>
