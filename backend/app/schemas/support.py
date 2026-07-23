@@ -26,14 +26,19 @@ class SupportTicket(SupportTicketBase):
     id: int
     intent: Optional[str] = None
     sentiment: Optional[str] = None
+    sentiment_explanation: Optional[str] = None
     priority: Optional[str] = None
+    priority_reasoning: Optional[str] = None
     response: Optional[str] = None
     escalate: bool = False
+    escalate_reasoning: Optional[str] = None
     reasoning: Optional[str] = None
     status: str = "new"
     created_at: datetime
     resolved_at: Optional[datetime] = None
-    assigned_to: Optional[str] = None  
+    assigned_to: Optional[str] = None
+    assigned_agent: Optional[str] = None
+    ticket_summary: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -50,8 +55,14 @@ class SupportAnalysisResponse(BaseModel):
     ticket_id: Optional[int] = None
     intent: str
     sentiment: str
+    sentiment_explanation: Optional[str] = ""
     priority: str
+    priority_reasoning: Optional[str] = ""
     response: str
     escalate: bool
-    reasoning: str
+    escalate_reasoning: Optional[str] = ""
+    reasoning: str = ""
     recommended_products: Optional[List[str]] = []
+    assigned_agent: Optional[str] = ""
+    ticket_summary: Optional[str] = ""
+    similar_tickets: Optional[List[dict]] = []

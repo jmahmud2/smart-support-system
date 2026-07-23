@@ -8,10 +8,13 @@ from .state import SupportState
 from .nodes import (
     classify_intent,
     analyze_sentiment,
-    assign_priority,
+    assign_priority_ai,
+    generate_ticket_summary,
+    intelligent_routing,
+    find_similar_tickets,
     recommend_products,
     generate_response,
-    check_escalation,
+    check_escalation_ai,
 )
 
 
@@ -21,11 +24,14 @@ def build_graph():
 
     The workflow follows this pipeline:
     1. classify_intent - Determine what the customer wants
-    2. analyze_sentiment - Understand the customer's emotional state
-    3. assign_priority - Set urgency level
-    4. recommend_products - Suggest relevant products
-    5. generate_response - Create an AI response
-    6. check_escalation - Decide if a human should intervene
+    2. analyze_sentiment - Understand the customer's emotional state with explanation
+    3. assign_priority_ai - Set urgency level using AI
+    4. generate_ticket_summary - Create a 1-sentence summary
+    5. intelligent_routing - Route to the right agent
+    6. find_similar_tickets - Find similar past tickets
+    7. recommend_products - Suggest relevant products
+    8. generate_response - Create an AI response
+    9. check_escalation_ai - Decide if a human should intervene using AI
 
     Returns:
         A compiled LangGraph StateGraph ready for execution
@@ -35,19 +41,25 @@ def build_graph():
     # Add processing nodes
     workflow.add_node("classify_intent", classify_intent)
     workflow.add_node("analyze_sentiment", analyze_sentiment)
-    workflow.add_node("assign_priority", assign_priority)
+    workflow.add_node("assign_priority_ai", assign_priority_ai)
+    workflow.add_node("generate_ticket_summary", generate_ticket_summary)
+    workflow.add_node("intelligent_routing", intelligent_routing)
+    workflow.add_node("find_similar_tickets", find_similar_tickets)
     workflow.add_node("recommend_products", recommend_products)
     workflow.add_node("generate_response", generate_response)
-    workflow.add_node("check_escalation", check_escalation)
+    workflow.add_node("check_escalation_ai", check_escalation_ai)
 
     # Define the execution flow
     workflow.set_entry_point("classify_intent")
     workflow.add_edge("classify_intent", "analyze_sentiment")
-    workflow.add_edge("analyze_sentiment", "assign_priority")
-    workflow.add_edge("assign_priority", "recommend_products")
+    workflow.add_edge("analyze_sentiment", "assign_priority_ai")
+    workflow.add_edge("assign_priority_ai", "generate_ticket_summary")
+    workflow.add_edge("generate_ticket_summary", "intelligent_routing")
+    workflow.add_edge("intelligent_routing", "find_similar_tickets")
+    workflow.add_edge("find_similar_tickets", "recommend_products")
     workflow.add_edge("recommend_products", "generate_response")
-    workflow.add_edge("generate_response", "check_escalation")
-    workflow.add_edge("check_escalation", END)
+    workflow.add_edge("generate_response", "check_escalation_ai")
+    workflow.add_edge("check_escalation_ai", END)
 
     # Compile the graph for execution
     return workflow.compile()
@@ -70,12 +82,18 @@ def process_message(message: str) -> dict:
         "customer_message": message,
         "intent": None,
         "sentiment": None,
+        "sentiment_explanation": None,
         "priority": None,
+        "priority_reasoning": None,
         "response": None,
         "escalate": False,
+        "escalate_reasoning": None,
         "reasoning": None,
         "product_id": None,
         "recommended_products": [],
+        "assigned_agent": None,
+        "ticket_summary": None,
+        "similar_tickets": [],
     }
 
     # Execute the workflow

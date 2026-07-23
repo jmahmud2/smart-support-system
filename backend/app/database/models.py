@@ -46,21 +46,28 @@ class SupportTicket(Base):
     customer_message = Column(Text, nullable=False)
     
     # AI Analysis Results
-    intent = Column(String)  # refund, shipping, product_inquiry, complaint, general
-    sentiment = Column(String)  # positive, neutral, negative
-    priority = Column(String)  # low, medium, high, urgent
+    intent = Column(String)
+    sentiment = Column(String)
+    sentiment_explanation = Column(Text, nullable=True)
+    priority = Column(String)
+    priority_reasoning = Column(Text, nullable=True)
     response = Column(Text)
     escalate = Column(Boolean, default=False)
+    escalate_reasoning = Column(Text, nullable=True)
     reasoning = Column(Text)
     
     # Foreign Keys
     product_id = Column(Integer, ForeignKey("products.id"), nullable=True)
     
-    # Agent Assignment 
+    # Agent Assignment
     assigned_to = Column(String, nullable=True)
+    assigned_agent = Column(String, nullable=True)
+    
+    # Summary
+    ticket_summary = Column(Text, nullable=True)
     
     # Metadata
-    status = Column(String, default="new")  # new, in_progress, resolved, closed
+    status = Column(String, default="new")
     created_at = Column(DateTime, default=datetime.utcnow)
     resolved_at = Column(DateTime, nullable=True)
     

@@ -9,24 +9,19 @@ from typing import TypedDict, Optional, List
 class SupportState(TypedDict):
     """
     Represents the state of a customer support ticket as it passes through the workflow.
-
-    Attributes:
-        customer_message: The original message from the customer
-        intent: Classified intent (refund, shipping, product_inquiry, complaint, general)
-        sentiment: Analyzed sentiment (positive, neutral, negative)
-        priority: Assigned priority (low, medium, high, urgent)
-        response: AI-generated response to the customer
-        escalate: Flag indicating if the ticket should be escalated to a human
-        reasoning: Explanation for the escalation decision
-        product_id: Optional reference to a related product
-        recommended_products: Optional list of recommended product names
     """
     customer_message: str
     intent: Optional[str]
     sentiment: Optional[str]
+    sentiment_explanation: Optional[str]
     priority: Optional[str]
+    priority_reasoning: Optional[str]
     response: Optional[str]
     escalate: bool
+    escalate_reasoning: Optional[str]
     reasoning: Optional[str]
     product_id: Optional[int]
     recommended_products: Optional[List[str]]
+    assigned_agent: Optional[str]
+    ticket_summary: Optional[str]
+    similar_tickets: Optional[List[dict]]

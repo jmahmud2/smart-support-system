@@ -255,7 +255,47 @@ export default function Dashboard() {
                   </span>
                 </div>
                 <p className="text-sm font-medium text-gray-700">Intent: {analysisResult.intent}</p>
-                <p className="text-sm text-gray-600">{analysisResult.reasoning}</p>
+                
+                {/* Sentiment Explanation */}
+                {analysisResult.sentiment_explanation && (
+                  <p className="text-sm text-gray-600">
+                    <span className="font-medium">Sentiment reason:</span> {analysisResult.sentiment_explanation}
+                  </p>
+                )}
+                
+                {/* Priority Reasoning */}
+                {analysisResult.priority_reasoning && (
+                  <p className="text-sm text-gray-600">
+                    <span className="font-medium">Priority reason:</span> {analysisResult.priority_reasoning}
+                  </p>
+                )}
+                
+                {/* Escalation Reasoning */}
+                {analysisResult.escalate_reasoning && (
+                  <p className="text-sm text-gray-600">
+                    <span className="font-medium">Escalation reason:</span> {analysisResult.escalate_reasoning}
+                  </p>
+                )}
+                
+                {/* Ticket Summary */}
+                {analysisResult.ticket_summary && (
+                  <div className="p-2 bg-purple-50 rounded border border-purple-200">
+                    <p className="text-sm text-purple-700">
+                      <span className="font-medium">📝 Summary:</span> {analysisResult.ticket_summary}
+                    </p>
+                  </div>
+                )}
+                
+                {/* Assigned Agent */}
+                {analysisResult.assigned_agent && (
+                  <p className="text-sm text-gray-600">
+                    <span className="font-medium">Assigned to:</span> {analysisResult.assigned_agent}
+                  </p>
+                )}
+                
+                {analysisResult.reasoning && (
+                  <p className="text-sm text-gray-600">{analysisResult.reasoning}</p>
+                )}
                 
                 {/* Product Recommendations */}
                 {analysisResult.recommended_products && analysisResult.recommended_products.length > 0 && (
@@ -286,12 +326,9 @@ export default function Dashboard() {
                   </button>
                 </div>
                 
-                {/* Save Success Message */}
                 {saveSuccess && (
                   <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                    <p className="text-green-700 text-sm font-medium">
-                      ✅ Ticket saved successfully!
-                    </p>
+                    <p className="text-green-700 text-sm font-medium">✅ Ticket saved successfully!</p>
                   </div>
                 )}
               </div>
@@ -320,7 +357,7 @@ export default function Dashboard() {
                   <div className="flex items-start justify-between">
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-gray-900 truncate">
-                        {ticket.customer_message?.substring(0, 60)}...
+                        {ticket.ticket_summary || ticket.customer_message?.substring(0, 60)}...
                       </p>
                       <div className="flex flex-wrap gap-1 mt-1">
                         <span className={`badge ${getBadgeColor('status', ticket.status)}`}>

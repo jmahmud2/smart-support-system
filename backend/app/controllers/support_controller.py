@@ -11,6 +11,9 @@ from ..database.models import SupportTicket, Product
 from ..schemas.support import SupportTicketCreate
 from ..workflow.workflow import process_message
 from ..workflow.llm import call_llm
+from ..utils.logger import get_logger, log_error
+
+logger = get_logger(__name__)
 
 
 class SupportController:
@@ -19,39 +22,62 @@ class SupportController:
     @staticmethod
     def analyze_message(message: str, product_id: Optional[int] = None) -> dict:
         """Process a customer message through the AI workflow."""
+        logger.info(f" Analyzing message: {message[:50]}...")
         result = process_message(message)
         if product_id:
             result['product_id'] = product_id
+        logger.info(f" Analysis complete: Intent={result.get('intent')}, Sentiment={result.get('sentiment')}")
         return result
 
     @staticmethod
     def create_ticket(db: Session, ticket_data: SupportTicketCreate) -> SupportTicket:
         """Create a new support ticket and run it through the AI workflow."""
-        workflow_result = process_message(ticket_data.customer_message)
+        try:
+            logger.info(f" Creating ticket for: {ticket_data.customer_message[:50]}...")
+            
+            workflow_result = process_message(ticket_data.customer_message)
+            logger.info(f" Workflow result: Intent={workflow_result.get('intent')}, Sentiment={workflow_result.get('sentiment')}")
 
-        ticket = SupportTicket(
-            customer_name=ticket_data.customer_name,
-            customer_email=ticket_data.customer_email,
-            customer_message=ticket_data.customer_message,
-            product_id=ticket_data.product_id,
-            intent=workflow_result.get('intent'),
-            sentiment=workflow_result.get('sentiment'),
-            priority=workflow_result.get('priority'),
-            response=workflow_result.get('response'),
-            escalate=workflow_result.get('escalate', False),
-            reasoning=workflow_result.get('reasoning'),
-            status='new'
-        )
+            ticket = SupportTicket(
+                customer_name=ticket_data.customer_name,
+                customer_email=ticket_data.customer_email,
+                customer_message=ticket_data.customer_message,
+                product_id=ticket_data.product_id,
+                intent=workflow_result.get('intent') or "general",
+                sentiment=workflow_result.get('sentiment') or "neutral",
+                sentiment_explanation=workflow_result.get('sentiment_explanation') or "",
+                priority=workflow_result.get('priority') or "medium",
+                priority_reasoning=workflow_result.get('priority_reasoning') or "",
+                response=workflow_result.get('response') or "Thank you for reaching out. Our team will review your inquiry.",
+                escalate=workflow_result.get('escalate', False),
+                escalate_reasoning=workflow_result.get('escalate_reasoning') or "",
+                reasoning=workflow_result.get('reasoning') or "",
+                assigned_agent=workflow_result.get('assigned_agent') or "",
+                ticket_summary=workflow_result.get('ticket_summary') or "",
+                status='new'
+            )
 
-        db.add(ticket)
-        db.commit()
-        db.refresh(ticket)
-        return ticket
+            db.add(ticket)
+            db.commit()
+            db.refresh(ticket)
+            logger.info(f" Ticket created successfully: #{ticket.id}")
+            return ticket
+            
+        except Exception as e:
+            log_error(logger, e, "Creating ticket")
+            db.rollback()
+            raise
 
     @staticmethod
     def get_ticket(db: Session, ticket_id: int) -> Optional[SupportTicket]:
         """Get a support ticket by ID."""
-        return db.query(SupportTicket).filter(SupportTicket.id == ticket_id).first()
+        logger.info(f"🔍 Fetching ticket #{ticket_id}")
+        ticket = db.query(SupportTicket).filter(SupportTicket.id == ticket_id).first()
+        if ticket:
+            logger.info(f" Ticket #{ticket_id} found")
+        else:
+            logger.warning(f" Ticket #{ticket_id} not found")
+        return ticket
 
     @staticmethod
     def get_tickets(
@@ -62,6 +88,7 @@ class SupportController:
         offset: int = 0
     ) -> List[SupportTicket]:
         """Get a list of support tickets with optional filters."""
+        logger.info(f" Fetching tickets: status={status}, intent={intent}, limit={limit}, offset={offset}")
         query = db.query(SupportTicket)
 
         if status:
@@ -69,13 +96,17 @@ class SupportController:
         if intent:
             query = query.filter(SupportTicket.intent == intent)
 
-        return query.order_by(SupportTicket.created_at.desc()).offset(offset).limit(limit).all()
+        tickets = query.order_by(SupportTicket.created_at.desc()).offset(offset).limit(limit).all()
+        logger.info(f" Found {len(tickets)} tickets")
+        return tickets
 
     @staticmethod
     def update_status(db: Session, ticket_id: int, status: str) -> Optional[SupportTicket]:
         """Update a ticket's status."""
+        logger.info(f" Updating ticket #{ticket_id} status to: {status}")
         ticket = db.query(SupportTicket).filter(SupportTicket.id == ticket_id).first()
         if not ticket:
+            logger.warning(f"⚠️ Ticket #{ticket_id} not found")
             return None
 
         ticket.status = status
@@ -84,12 +115,14 @@ class SupportController:
 
         db.commit()
         db.refresh(ticket)
+        logger.info(f" Ticket #{ticket_id} status updated to: {status}")
         return ticket
 
     @staticmethod
     def get_stats(db: Session) -> dict:
         """Get support ticket statistics."""
         from sqlalchemy import func
+        logger.info(" Fetching support statistics")
 
         total_tickets = db.query(func.count(SupportTicket.id)).scalar()
 
@@ -107,22 +140,27 @@ class SupportController:
             SupportTicket.escalate == True
         ).scalar()
 
-        return {
+        result = {
             "total_tickets": total_tickets or 0,
             "status_breakdown": {status: count for status, count in status_breakdown if status},
             "intent_breakdown": {intent: count for intent, count in intent_breakdown if intent},
             "escalated_count": escalated_count or 0,
             "escalation_rate": round((escalated_count / total_tickets * 100) if total_tickets > 0 else 0, 2)
         }
+        logger.info(f" Stats fetched: {result['total_tickets']} total tickets")
+        return result
 
     @staticmethod
     def auto_reply_to_ticket(db: Session, ticket_id: int) -> dict:
         """Send an AI-generated auto-reply to a customer."""
+        logger.info(f" Auto-reply to ticket #{ticket_id}")
         ticket = db.query(SupportTicket).filter(SupportTicket.id == ticket_id).first()
         if not ticket:
+            logger.warning(f" Ticket #{ticket_id} not found")
             return {"success": False, "error": "Ticket not found"}
 
         if ticket.response and "Thank you for your" not in ticket.response[:50]:
+            logger.info(f"ℹ Ticket #{ticket_id} already has a response")
             return {"success": False, "error": "Ticket already has a response"}
 
         result = process_message(ticket.customer_message)
@@ -130,13 +168,19 @@ class SupportController:
         ticket.response = result.get('response')
         ticket.intent = result.get('intent')
         ticket.sentiment = result.get('sentiment')
+        ticket.sentiment_explanation = result.get('sentiment_explanation')
         ticket.priority = result.get('priority')
+        ticket.priority_reasoning = result.get('priority_reasoning')
         ticket.escalate = result.get('escalate', False)
+        ticket.escalate_reasoning = result.get('escalate_reasoning')
         ticket.reasoning = result.get('reasoning')
+        ticket.assigned_agent = result.get('assigned_agent')
+        ticket.ticket_summary = result.get('ticket_summary')
 
         db.commit()
         db.refresh(ticket)
 
+        logger.info(f" Auto-reply sent to ticket #{ticket_id}")
         return {
             "success": True,
             "ticket_id": ticket.id,
@@ -147,26 +191,31 @@ class SupportController:
     @staticmethod
     def auto_reply_to_all_new_tickets(db: Session) -> dict:
         """Send auto-replies to all 'new' tickets without responses."""
+        logger.info(" Auto-replying to all new tickets")
         tickets = db.query(SupportTicket).filter(
             SupportTicket.status == 'new',
             SupportTicket.response.is_(None)
         ).all()
 
+        logger.info(f" Found {len(tickets)} tickets without responses")
         results = []
         for ticket in tickets:
             result = SupportController.auto_reply_to_ticket(db, ticket.id)
             results.append(result)
 
+        success_count = sum(1 for r in results if r.get('success'))
+        logger.info(f" Auto-replied to {success_count}/{len(tickets)} tickets")
         return {
             "total_processed": len(results),
-            "successful": sum(1 for r in results if r.get('success')),
-            "failed": sum(1 for r in results if not r.get('success'))
+            "successful": success_count,
+            "failed": len(results) - success_count
         }
 
     @staticmethod
     def get_sentiment_trends(db: Session, days: int = 7) -> dict:
         """Get sentiment trends over time."""
         from sqlalchemy import func
+        logger.info(f" Fetching sentiment trends for last {days} days")
 
         end_date = datetime.now(timezone.utc)
         start_date = end_date - timedelta(days=days)
@@ -201,6 +250,7 @@ class SupportController:
             if result.sentiment and result.sentiment in sentiment_distribution:
                 sentiment_distribution[result.sentiment] = result.count
 
+        logger.info(f" Sentiment trends fetched: {sentiment_distribution}")
         return {
             'trends': dates,
             'distribution': sentiment_distribution,
@@ -210,12 +260,15 @@ class SupportController:
     @staticmethod
     def get_ai_summary(db: Session, days: int = 7) -> dict:
         """Generate an AI summary of recent tickets."""
+        logger.info(f" Generating AI summary for last {days} days")
+        
         start_date = datetime.now(timezone.utc) - timedelta(days=days)
         tickets = db.query(SupportTicket).filter(
             SupportTicket.created_at >= start_date
         ).limit(50).all()
 
         if not tickets:
+            logger.info(" No recent tickets found")
             return {"summary": "No recent tickets to summarize."}
 
         ticket_data = []
@@ -225,7 +278,7 @@ class SupportController:
                 'intent': ticket.intent,
                 'sentiment': ticket.sentiment,
                 'priority': ticket.priority,
-                'message': ticket.customer_message[:100] if ticket.customer_message else ''
+                'summary': ticket.ticket_summary or ticket.customer_message[:100] if ticket.customer_message else ''
             })
 
         prompt = f"""
@@ -244,6 +297,7 @@ class SupportController:
 
         summary = call_llm(prompt)
 
+        logger.info(f" AI summary generated ({len(tickets)} tickets)")
         return {
             'period': f'Last {days} days',
             'total_tickets': len(tickets),
@@ -253,13 +307,16 @@ class SupportController:
     @staticmethod
     def assign_ticket(db: Session, ticket_id: int, agent_name: str) -> Optional[SupportTicket]:
         """Assign a ticket to an agent."""
+        logger.info(f" Assigning ticket #{ticket_id} to: {agent_name}")
         ticket = db.query(SupportTicket).filter(SupportTicket.id == ticket_id).first()
         if not ticket:
+            logger.warning(f" Ticket #{ticket_id} not found")
             return None
 
         ticket.assigned_to = agent_name
         db.commit()
         db.refresh(ticket)
+        logger.info(f" Ticket #{ticket_id} assigned to: {agent_name}")
         return ticket
 
     @staticmethod
@@ -271,12 +328,15 @@ class SupportController:
         offset: int = 0
     ) -> List[SupportTicket]:
         """Get tickets assigned to a specific agent."""
+        logger.info(f" Fetching tickets for agent: {agent_name}")
         query = db.query(SupportTicket).filter(SupportTicket.assigned_to == agent_name)
 
         if status:
             query = query.filter(SupportTicket.status == status)
 
-        return query.order_by(SupportTicket.created_at.desc()).offset(offset).limit(limit).all()
+        tickets = query.order_by(SupportTicket.created_at.desc()).offset(offset).limit(limit).all()
+        logger.info(f" Found {len(tickets)} tickets for {agent_name}")
+        return tickets
 
     @staticmethod
     def get_unassigned_tickets(
@@ -285,6 +345,9 @@ class SupportController:
         offset: int = 0
     ) -> List[SupportTicket]:
         """Get tickets that haven't been assigned to anyone."""
-        return db.query(SupportTicket).filter(
+        logger.info(f" Fetching unassigned tickets")
+        tickets = db.query(SupportTicket).filter(
             SupportTicket.assigned_to.is_(None)
         ).order_by(SupportTicket.created_at.desc()).offset(offset).limit(limit).all()
+        logger.info(f" Found {len(tickets)} unassigned tickets")
+        return tickets

@@ -47,14 +47,23 @@ async def analyze_message(
             ticket_id=None,
             intent=result.get('intent', 'general'),
             sentiment=result.get('sentiment', 'neutral'),
+            sentiment_explanation=result.get('sentiment_explanation') or "",
             priority=result.get('priority', 'low'),
+            priority_reasoning=result.get('priority_reasoning') or "",
             response=result.get('response', ''),
             escalate=result.get('escalate', False),
-            reasoning=result.get('reasoning', ''),
-            recommended_products=result.get('recommended_products', [])
+            escalate_reasoning=result.get('escalate_reasoning') or "",
+            reasoning=result.get('reasoning') or "",
+            recommended_products=result.get('recommended_products', []),
+            assigned_agent=result.get('assigned_agent') or "",
+            ticket_summary=result.get('ticket_summary') or "",
+            similar_tickets=result.get('similar_tickets', [])
         )
 
     except Exception as e:
+        print(f"❌ Error in analyze: {e}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -65,15 +74,24 @@ async def create_ticket(
 ):
     """Create a support ticket and run it through AI analysis."""
     try:
+        print(f"🔵 Received ticket creation request")
+        print(f"   Name: {ticket_data.customer_name}")
+        print(f"   Email: {ticket_data.customer_email}")
+        print(f"   Message: {ticket_data.customer_message[:50]}...")
+        
         if ticket_data.product_id:
             product = db.query(Product).filter(Product.id == ticket_data.product_id).first()
             if not product:
                 raise HTTPException(status_code=404, detail="Product not found")
 
         ticket = SupportController.create_ticket(db, ticket_data)
+        print(f"✅ Ticket created: #{ticket.id}")
         return ticket
 
     except Exception as e:
+        print(f"❌ Route error: {e}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -193,6 +211,7 @@ async def get_customer_history(
     ).order_by(SupportTicket.created_at.desc()).all()
 
     return tickets
+
 
 @router.patch("/tickets/{ticket_id}/assign")
 async def assign_ticket(

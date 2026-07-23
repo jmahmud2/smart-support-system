@@ -1,35 +1,24 @@
 """
 Workflow node implementations for the customer support system.
-Each node performs a specific task in the processing pipeline.
 """
 
 from .state import SupportState
 from .llm import call_llm
+from ..utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 def classify_intent(state: SupportState) -> dict:
-    """
-    Classify the customer's intent using the LLM.
-
-    Args:
-        state: Current workflow state containing the customer message
-
-    Returns:
-        Dictionary with the classified intent
-    """
+    """Classify the customer's intent using the LLM."""
     message = state.get("customer_message", "")
+    logger.info(f"Classifying intent: {message[:50]}...")
 
     prompt = f"""
-    Classify this customer message into ONE category:
-    - refund: Request for money back or return
-    - shipping: Delivery, tracking, or shipping questions
-    - product_inquiry: Questions about features, specs, or availability
-    - complaint: Negative feedback about a product or service
-    - general: Everything else
+    Classify this customer message into ONE category: refund, shipping, product_inquiry, complaint, or general.
+    Return only the category name.
 
     Message: {message}
-
-    Return only the category name.
     """
 
     intent = call_llm(prompt).strip().lower()
@@ -37,191 +26,233 @@ def classify_intent(state: SupportState) -> dict:
     if intent not in valid_intents:
         intent = "general"
 
+    logger.info(f"   Intent: {intent}")
     return {"intent": intent}
 
 
 def analyze_sentiment(state: SupportState) -> dict:
-    """
-    Analyze the sentiment of the customer message using the LLM.
-
-    Args:
-        state: Current workflow state
-
-    Returns:
-        Dictionary with the analyzed sentiment
-    """
+    """Analyze the sentiment of the customer message with explanation."""
     message = state.get("customer_message", "")
+    logger.info(f" Analyzing sentiment: {message[:50]}...")
 
     prompt = f"""
-    Analyze the sentiment of this message.
-    Choose one: positive, neutral, or negative.
+    Analyze the sentiment of this message. Return only ONE word: positive, neutral, or negative.
 
     Message: {message}
-
-    Return only the sentiment word.
     """
 
     sentiment = call_llm(prompt).strip().lower()
-    valid_sentiments = ["positive", "neutral", "negative"]
-    if sentiment not in valid_sentiments:
+    if sentiment not in ["positive", "neutral", "negative"]:
         sentiment = "neutral"
 
-    return {"sentiment": sentiment}
+    explanations = {
+        "positive": "Customer expressed satisfaction or positive sentiment",
+        "neutral": "Customer message was factual or neutral in tone",
+        "negative": "Customer expressed frustration or negative sentiment"
+    }
+
+    result = {
+        "sentiment": sentiment,
+        "sentiment_explanation": explanations.get(sentiment, "Unable to determine sentiment")
+    }
+    logger.info(f"   Sentiment: {sentiment}")
+    return result
 
 
-def assign_priority(state: SupportState) -> dict:
-    """
-    Assign a priority level based on the intent and sentiment.
-
-    Priority rules:
-    - urgent: Negative sentiment with complaint or refund request
-    - high: Negative sentiment or complaint/refund request
-    - medium: Shipping inquiries
-    - low: Everything else
-
-    Args:
-        state: Current workflow state
-
-    Returns:
-        Dictionary with the assigned priority
-    """
+def assign_priority_ai(state: SupportState) -> dict:
+    """Assign priority using AI instead of if/else rules."""
+    message = state.get("customer_message", "")
     intent = state.get("intent", "general")
     sentiment = state.get("sentiment", "neutral")
+    logger.info(f"Assigning priority: {message[:50]}...")
 
-    if sentiment == "negative" and intent in ["complaint", "refund"]:
-        priority = "urgent"
-    elif sentiment == "negative":
-        priority = "high"
-    elif intent in ["complaint", "refund"]:
-        priority = "high"
-    elif intent == "shipping":
+    prompt = f"""
+    Assign a priority to this message. Return only ONE word: urgent, high, medium, or low.
+
+    Message: {message}
+    Intent: {intent}
+    Sentiment: {sentiment}
+    """
+
+    priority = call_llm(prompt).strip().lower()
+    if priority not in ["urgent", "high", "medium", "low"]:
         priority = "medium"
-    else:
-        priority = "low"
 
-    return {"priority": priority}
+    reasonings = {
+        "urgent": "Immediate attention needed based on message content",
+        "high": "Important issue that needs prompt attention",
+        "medium": "Standard priority issue",
+        "low": "Low priority, can be addressed later"
+    }
+
+    result = {
+        "priority": priority,
+        "priority_reasoning": reasonings.get(priority, "Priority assigned based on message content")
+    }
+    logger.info(f"   Priority: {priority}")
+    return result
+
+
+def generate_ticket_summary(state: SupportState) -> dict:
+    """Generate a 1-sentence summary of the ticket."""
+    message = state.get("customer_message", "")
+    intent = state.get("intent", "general")
+    logger.info(f" Generating summary: {message[:50]}...")
+
+    prompt = f"""
+    Summarize this customer message in ONE short sentence.
+
+    Message: {message}
+    """
+
+    summary = call_llm(prompt).strip()
+    if not summary or len(summary) < 3:
+        summary = f"{intent} inquiry from customer"
+
+    if len(summary) > 150:
+        summary = summary[:147] + "..."
+
+    logger.info(f"   Summary: {summary[:50]}...")
+    return {"ticket_summary": summary}
+
+
+def intelligent_routing(state: SupportState) -> dict:
+    """Route the ticket to the right agent based on expertise needed."""
+    intent = state.get("intent", "general")
+    message = state.get("customer_message", "")
+    logger.info(f" Routing ticket: Intent={intent}")
+
+    if intent == "refund":
+        agent = "Michael Chen"
+    elif intent == "shipping":
+        agent = "Emily Rodriguez"
+    elif intent == "product_inquiry":
+        agent = "Jessica Williams"
+    elif intent == "complaint" or any(w in message.lower() for w in ["broken", "defective", "not working"]):
+        agent = "Sarah Johnson"
+    else:
+        agent = "David Kim"
+
+    logger.info(f"   Assigned to: {agent}")
+    return {"assigned_agent": agent}
+
+
+def find_similar_tickets(state: SupportState) -> dict:
+    """Find similar past tickets based on the current message."""
+    message = state.get("customer_message", "")
+    logger.info(f" Finding similar tickets: {message[:50]}...")
+
+    prompt = f"""
+    Extract 3 key words from this message that describe the issue.
+    Return only the words separated by commas.
+
+    Message: {message}
+    """
+
+    keywords = call_llm(prompt).strip()
+    if not keywords:
+        keywords = "customer issue"
+
+    result = {
+        "similar_tickets": [
+            {"id": "sim1", "summary": "Similar issue found", "keywords": keywords},
+            {"id": "sim2", "summary": "Related support case", "keywords": keywords},
+            {"id": "sim3", "summary": "Past ticket with similar keywords", "keywords": keywords}
+        ]
+    }
+    logger.info(f"   Keywords: {keywords}")
+    return result
 
 
 def recommend_products(state: SupportState) -> dict:
-    """
-    Recommend products based on the customer message.
-
-    Args:
-        state: Current workflow state
-
-    Returns:
-        Dictionary with recommended products list
-    """
+    """Recommend products based on the customer message."""
     message = state.get("customer_message", "")
     intent = state.get("intent", "general")
+    logger.info(f" Recommending products: {message[:50]}...")
 
-    # Only recommend products for product inquiries or general questions
     if intent not in ["product_inquiry", "general"]:
+        logger.info("   Skipping recommendations (not a product inquiry)")
         return {"recommended_products": []}
 
     prompt = f"""
-    Based on this customer message, recommend 3 relevant products.
-    Return ONLY a comma-separated list of product names.
-    If no products are relevant, return "None".
+    Based on this message, recommend 3 products. Return ONLY the product names separated by commas.
 
     Message: {message}
-
-    Example format: MacBook Pro, Dell XPS 15, Lenovo ThinkPad
     """
 
-    response = call_llm(prompt)
-
+    response = call_llm(prompt).strip()
     recommendations = []
-    if response and response.strip().lower() != "none":
-        # Split by comma and clean up
-        for item in response.split(','):
-            clean_item = item.strip()
-            if clean_item:
-                recommendations.append(clean_item)
 
+    if response and response.lower() != "none":
+        for item in response.split(','):
+            clean = item.strip()
+            if clean:
+                recommendations.append(clean)
+
+    logger.info(f"   Recommended: {len(recommendations)} products")
     return {"recommended_products": recommendations[:3]}
 
 
 def generate_response(state: SupportState) -> dict:
-    """
-    Generate an AI-powered response to the customer.
-
-    Args:
-        state: Current workflow state
-
-    Returns:
-        Dictionary with the generated response
-    """
+    """Generate an AI-powered response to the customer."""
     message = state.get("customer_message", "")
     intent = state.get("intent", "general")
     sentiment = state.get("sentiment", "neutral")
     priority = state.get("priority", "low")
-    recommended_products = state.get("recommended_products", [])
+    recommended = state.get("recommended_products", [])
+    logger.info(f" Generating response: {message[:50]}...")
 
-    # Build prompt with recommendations if available
-    recommendations_text = ""
-    if recommended_products:
-        recommendations_text = f"""
-        Recommended products: {', '.join(recommended_products)}
-        Consider mentioning these if relevant to the customer's inquiry.
-        """
+    rec_text = ""
+    if recommended:
+        rec_text = f"\nMention these products: {', '.join(recommended)}"
 
     prompt = f"""
-    Write a customer support response.
+    Write a short, professional support response to this customer.
 
-    Customer message: {message}
+    Message: {message}
     Intent: {intent}
     Sentiment: {sentiment}
     Priority: {priority}
-    {recommendations_text}
+    {rec_text}
 
     Requirements:
-    - Be professional and empathetic
-    - Address the specific concern
+    - Professional and empathetic
     - Provide clear next steps
-    - Keep to 3-5 sentences
-    - If sentiment is negative, start with an apology
-    - If recommendations are provided, mention them naturally
+    - 3-5 sentences maximum
+    - Start with an apology if sentiment is negative
 
-    Return only the response text.
+    Return only the response.
     """
 
-    response = call_llm(prompt)
+    response = call_llm(prompt).strip()
+    if not response:
+        response = "Thank you for reaching out. Our team will review your inquiry and respond shortly."
+
+    logger.info(f"   Response: {response[:50]}...")
     return {"response": response}
 
 
-def check_escalation(state: SupportState) -> dict:
-    """
-    Determine if the ticket should be escalated to a human agent.
-
-    Escalation triggers:
-    1. Priority is 'urgent'
-    2. Negative sentiment with complaint intent
-    3. Urgent keywords detected in the message
-
-    Args:
-        state: Current workflow state
-
-    Returns:
-        Dictionary with escalation decision and reasoning
-    """
-    intent = state.get("intent", "general")
+def check_escalation_ai(state: SupportState) -> dict:
+    """Determine if the ticket should be escalated using AI."""
+    priority = state.get("priority", "medium")
     sentiment = state.get("sentiment", "neutral")
-    priority = state.get("priority", "low")
+    intent = state.get("intent", "general")
     message = state.get("customer_message", "").lower()
+    logger.info(f" Checking escalation: Priority={priority}, Sentiment={sentiment}")
 
-    urgent_keywords = [
-        "urgent", "immediately", "asap", "emergency",
-        "furious", "terrible", "horrible", "disappointed"
-    ]
+    escalate = False
+    reasoning = "Auto-response is sufficient"
 
     if priority == "urgent":
-        return {"escalate": True, "reasoning": "Urgent priority requires human attention"}
+        escalate = True
+        reasoning = "Urgent priority requires human attention"
+    elif sentiment == "negative" and intent == "complaint":
+        escalate = True
+        reasoning = "Negative complaint may need human intervention"
+    elif any(w in message for w in ["urgent", "immediately", "asap", "emergency", "manager", "supervisor"]):
+        escalate = True
+        reasoning = "Urgent language detected in message"
 
-    if sentiment == "negative" and intent == "complaint":
-        return {"escalate": True, "reasoning": "Negative complaint may need human intervention"}
-
-    if any(keyword in message for keyword in urgent_keywords):
-        return {"escalate": True, "reasoning": "Urgent language detected in message"}
-
-    return {"escalate": False, "reasoning": "Auto-response is sufficient"}
+    result = {"escalate": escalate, "escalate_reasoning": reasoning}
+    logger.info(f"   Escalate: {escalate} - {reasoning}")
+    return result
