@@ -6,9 +6,11 @@ Handles ticket creation, analysis, and retrieval.
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import Optional
+from datetime import datetime, timezone
+from pydantic import BaseModel
 
 from ..database.database import get_db
-from ..database.models import Product
+from ..database.models import Product, SupportTicket
 from ..controllers.support_controller import SupportController
 from ..schemas.support import (
     SupportTicketCreate,
@@ -18,6 +20,10 @@ from ..schemas.support import (
 )
 
 router = APIRouter()
+
+
+class ReplyRequest(BaseModel):
+    message: str
 
 
 @router.post("/analyze", response_model=SupportAnalysisResponse)
@@ -149,3 +155,41 @@ async def get_ai_summary(
 ):
     """Generate an AI summary of recent tickets."""
     return SupportController.get_ai_summary(db, days)
+
+
+@router.post("/tickets/{ticket_id}/reply")
+async def send_reply(
+    ticket_id: int,
+    reply_data: ReplyRequest,
+    db: Session = Depends(get_db)
+):
+    """Send a reply to a ticket and mark it as resolved."""
+    ticket = db.query(SupportTicket).filter(SupportTicket.id == ticket_id).first()
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+    
+    ticket.response = reply_data.message
+    ticket.status = "resolved"
+    ticket.resolved_at = datetime.now(timezone.utc)
+    
+    db.commit()
+    db.refresh(ticket)
+    
+    return {
+        "success": True,
+        "ticket_id": ticket.id,
+        "message": "Reply sent successfully"
+    }
+
+
+@router.get("/tickets/customer/{email}")
+async def get_customer_history(
+    email: str,
+    db: Session = Depends(get_db)
+):
+    """Get all tickets from a specific customer."""
+    tickets = db.query(SupportTicket).filter(
+        SupportTicket.customer_email == email
+    ).order_by(SupportTicket.created_at.desc()).all()
+    
+    return tickets

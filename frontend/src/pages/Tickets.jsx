@@ -6,6 +6,10 @@ export default function Tickets() {
   const [loading, setLoading] = useState(true);
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [showDetail, setShowDetail] = useState(false);
+  const [replyMessage, setReplyMessage] = useState('');
+  const [sendingReply, setSendingReply] = useState(false);
+  const [customerHistory, setCustomerHistory] = useState([]);
+  const [showHistory, setShowHistory] = useState(false);
   
   // Filter states
   const [statusFilter, setStatusFilter] = useState('');
@@ -43,9 +47,20 @@ export default function Tickets() {
       if (intentFilter) params.intent = intentFilter;
       
       const response = await apiClient.get('/support/tickets', { params });
-      setTickets(response.data || []);
-      // Note: API doesn't return total count, so we'll estimate
-      setTotalTickets(tickets.length + (response.data.length === limit ? limit : 0));
+      let ticketsData = response.data || [];
+      
+      // Client-side search by name, email, or message
+      if (searchTerm) {
+        const search = searchTerm.toLowerCase();
+        ticketsData = ticketsData.filter(ticket => 
+          (ticket.customer_name || '').toLowerCase().includes(search) ||
+          (ticket.customer_email || '').toLowerCase().includes(search) ||
+          (ticket.customer_message || '').toLowerCase().includes(search)
+        );
+      }
+      
+      setTickets(ticketsData);
+      setTotalTickets(response.data.length || 0);
     } catch (error) {
       console.error('Error fetching tickets:', error);
     } finally {
@@ -67,6 +82,44 @@ export default function Tickets() {
     } catch (error) {
       console.error('Error updating ticket status:', error);
       alert('Failed to update ticket status');
+    }
+  };
+
+  const handleSendReply = async (ticketId) => {
+    if (!replyMessage.trim()) return;
+    
+    setSendingReply(true);
+    try {
+      await apiClient.post(`/support/tickets/${ticketId}/reply`, {
+        message: replyMessage
+      });
+      
+      setReplyMessage('');
+      fetchTickets();
+      setShowDetail(false);
+      
+      alert('Reply sent successfully!');
+    } catch (error) {
+      console.error('Error sending reply:', error);
+      alert('Failed to send reply. Please try again.');
+    } finally {
+      setSendingReply(false);
+    }
+  };
+
+  const fetchCustomerHistory = async (email) => {
+    if (!email) {
+      alert('No email address available for this customer');
+      return;
+    }
+    
+    try {
+      const response = await apiClient.get(`/support/tickets/customer/${email}`);
+      setCustomerHistory(response.data);
+      setShowHistory(true);
+    } catch (error) {
+      console.error('Error fetching customer history:', error);
+      alert('Failed to fetch customer history');
     }
   };
 
@@ -137,16 +190,13 @@ export default function Tickets() {
     return ['refund', 'shipping', 'product_inquiry', 'complaint', 'general'];
   };
 
-  // Filter tickets by search term
-  const filteredTickets = tickets.filter(ticket => {
-    if (!searchTerm) return true;
-    const search = searchTerm.toLowerCase();
-    return (
-      (ticket.customer_message || '').toLowerCase().includes(search) ||
-      (ticket.customer_name || '').toLowerCase().includes(search) ||
-      (ticket.intent || '').toLowerCase().includes(search)
-    );
-  });
+  const getTimeAgo = (createdAt) => {
+    const hours = Math.floor((Date.now() - new Date(createdAt)) / (1000 * 60 * 60));
+    if (hours < 1) return 'Just now';
+    if (hours === 1) return '1 hour ago';
+    if (hours < 24) return `${hours} hours ago`;
+    return new Date(createdAt).toLocaleDateString();
+  };
 
   return (
     <div>
@@ -174,7 +224,7 @@ export default function Tickets() {
               <input
                 type="text"
                 className="input flex-1"
-                placeholder="Search messages..."
+                placeholder="Search name, email, message..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
@@ -265,7 +315,7 @@ export default function Tickets() {
         <div className="flex items-center justify-center h-64">
           <div className="text-gray-500">Loading tickets...</div>
         </div>
-      ) : filteredTickets.length === 0 ? (
+      ) : tickets.length === 0 ? (
         <div className="card text-center py-12">
           <p className="text-gray-500">No tickets found</p>
         </div>
@@ -275,6 +325,8 @@ export default function Tickets() {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Message</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Intent</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
@@ -284,16 +336,25 @@ export default function Tickets() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {filteredTickets.map((ticket) => (
+              {tickets.map((ticket) => (
                 <tr
                   key={ticket.id}
                   className="hover:bg-gray-50 cursor-pointer transition-colors"
                   onClick={() => {
                     setSelectedTicket(ticket);
                     setShowDetail(true);
+                    setCustomerHistory([]);
+                    setShowHistory(false);
+                    setReplyMessage(ticket.response || '');
                   }}
                 >
                   <td className="px-4 py-3 text-sm font-medium text-gray-900">#{ticket.id}</td>
+                  <td className="px-4 py-3 text-sm text-gray-900 max-w-[100px] truncate">
+                    {ticket.customer_name || 'Anonymous'}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-500 max-w-[100px] truncate">
+                    {ticket.customer_email || '—'}
+                  </td>
                   <td className="px-4 py-3 text-sm text-gray-600 max-w-xs truncate">
                     {ticket.customer_message?.substring(0, 60) || 'No message'}
                   </td>
@@ -456,9 +517,19 @@ export default function Tickets() {
           <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex items-start justify-between mb-4">
-                <h2 className="text-xl font-bold text-gray-900">
-                  Ticket #{selectedTicket.id}
-                </h2>
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">
+                    Ticket #{selectedTicket.id}
+                  </h2>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-sm text-gray-600">{selectedTicket.customer_name || 'Anonymous'}</span>
+                    <span className="text-sm text-gray-400">•</span>
+                    <span className="text-sm text-gray-600">{selectedTicket.customer_email || 'No email'}</span>
+                    <span className="text-xs text-gray-400 ml-2">
+                      ({getTimeAgo(selectedTicket.created_at)})
+                    </span>
+                  </div>
+                </div>
                 <button
                   className="text-gray-400 hover:text-gray-600 text-2xl"
                   onClick={() => setShowDetail(false)}
@@ -468,12 +539,6 @@ export default function Tickets() {
               </div>
               
               <div className="space-y-4">
-                <div>
-                  <p className="text-sm text-gray-500">Customer</p>
-                  <p className="font-medium">{selectedTicket.customer_name || 'Anonymous'}</p>
-                  <p className="text-sm text-gray-600">{selectedTicket.customer_email || 'No email'}</p>
-                </div>
-                
                 <div>
                   <p className="text-sm text-gray-500">Message</p>
                   <p className="text-gray-700 bg-gray-50 p-3 rounded-lg">
@@ -519,10 +584,72 @@ export default function Tickets() {
                   <p className="text-sm text-gray-500">Reasoning</p>
                   <p className="text-gray-600 text-sm">{selectedTicket.reasoning || 'No reasoning provided'}</p>
                 </div>
+
+                {/* Customer History Button */}
+                {selectedTicket.customer_email && (
+                  <div className="pt-2">
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => fetchCustomerHistory(selectedTicket.customer_email)}
+                    >
+                      View Customer History
+                    </button>
+                  </div>
+                )}
+
+                {/* Customer History Display */}
+                {showHistory && customerHistory.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-700 mb-2">Previous Tickets</h4>
+                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                      {customerHistory.map((ticket) => (
+                        <div key={ticket.id} className="p-2 bg-gray-50 rounded-lg text-sm">
+                          <div className="flex justify-between">
+                            <span className="font-medium">#{ticket.id}</span>
+                            <span className={`badge ${getBadgeColor('status', ticket.status)}`}>
+                              {ticket.status}
+                            </span>
+                          </div>
+                          <p className="text-gray-600 truncate">{ticket.customer_message}</p>
+                          <span className="text-xs text-gray-400">
+                            {new Date(ticket.created_at).toLocaleDateString()}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 
+                {/* Reply Section */}
+                <div className="pt-4 border-t border-gray-200">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Reply</label>
+                  <textarea
+                    className="input min-h-[80px]"
+                    placeholder="Type your reply..."
+                    value={replyMessage}
+                    onChange={(e) => setReplyMessage(e.target.value)}
+                  />
+                  <div className="flex gap-2 mt-2">
+                    <button
+                      className="btn btn-primary flex-1"
+                      onClick={() => handleSendReply(selectedTicket.id)}
+                      disabled={!replyMessage.trim() || sendingReply}
+                    >
+                      {sendingReply ? 'Sending...' : 'Send Reply'}
+                    </button>
+                    <button
+                      className="btn btn-secondary"
+                      onClick={() => setReplyMessage('')}
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </div>
+
+                {/* Status Update */}
                 <div className="pt-4 border-t border-gray-200">
                   <label className="block text-sm font-medium text-gray-700 mb-2">Update Status</label>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     {getStatusOptions().map((status) => (
                       <button
                         key={status}

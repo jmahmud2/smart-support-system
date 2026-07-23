@@ -5,7 +5,7 @@ Coordinates between the database, workflow, and API routes.
 
 from sqlalchemy.orm import Session
 from typing import Optional, List
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from ..database.models import SupportTicket, Product
 from ..schemas.support import SupportTicketCreate
@@ -80,7 +80,7 @@ class SupportController:
 
         ticket.status = status
         if status in ['resolved', 'closed']:
-            ticket.resolved_at = datetime.utcnow()
+            ticket.resolved_at = datetime.now(timezone.utc)
 
         db.commit()
         db.refresh(ticket)
@@ -168,7 +168,7 @@ class SupportController:
         """Get sentiment trends over time."""
         from sqlalchemy import func
 
-        end_date = datetime.now()
+        end_date = datetime.now(timezone.utc)
         start_date = end_date - timedelta(days=days)
 
         results = db.query(
@@ -210,7 +210,7 @@ class SupportController:
     @staticmethod
     def get_ai_summary(db: Session, days: int = 7) -> dict:
         """Generate an AI summary of recent tickets."""
-        start_date = datetime.now() - timedelta(days=days)
+        start_date = datetime.now(timezone.utc) - timedelta(days=days)
         tickets = db.query(SupportTicket).filter(
             SupportTicket.created_at >= start_date
         ).limit(50).all()
