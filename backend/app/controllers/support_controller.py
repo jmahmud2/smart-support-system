@@ -61,6 +61,12 @@ class SupportController:
             db.commit()
             db.refresh(ticket)
             logger.info(f" Ticket created successfully: #{ticket.id}")
+            
+            # Update customer summary
+            if ticket.customer_email:
+                from ..services.customer_context import CustomerContextService
+                CustomerContextService.update_customer_summary(db, ticket.customer_email)
+            
             return ticket
             
         except Exception as e:
@@ -71,7 +77,7 @@ class SupportController:
     @staticmethod
     def get_ticket(db: Session, ticket_id: int) -> Optional[SupportTicket]:
         """Get a support ticket by ID."""
-        logger.info(f"🔍 Fetching ticket #{ticket_id}")
+        logger.info(f" Fetching ticket #{ticket_id}")
         ticket = db.query(SupportTicket).filter(SupportTicket.id == ticket_id).first()
         if ticket:
             logger.info(f" Ticket #{ticket_id} found")
@@ -106,7 +112,7 @@ class SupportController:
         logger.info(f" Updating ticket #{ticket_id} status to: {status}")
         ticket = db.query(SupportTicket).filter(SupportTicket.id == ticket_id).first()
         if not ticket:
-            logger.warning(f"⚠️ Ticket #{ticket_id} not found")
+            logger.warning(f" Ticket #{ticket_id} not found")
             return None
 
         ticket.status = status
@@ -268,7 +274,7 @@ class SupportController:
         ).limit(50).all()
 
         if not tickets:
-            logger.info(" No recent tickets found")
+            logger.info("ℹ No recent tickets found")
             return {"summary": "No recent tickets to summarize."}
 
         ticket_data = []
@@ -351,3 +357,106 @@ class SupportController:
         ).order_by(SupportTicket.created_at.desc()).offset(offset).limit(limit).all()
         logger.info(f" Found {len(tickets)} unassigned tickets")
         return tickets
+
+    # ============ TICKET-CENTRIC AI FEATURES ============
+
+    @staticmethod
+    def get_ticket_context(db: Session, ticket_id: int) -> dict:
+        """Get customer context for a ticket."""
+        from ..services.customer_context import CustomerContextService
+        
+        ticket = db.query(SupportTicket).filter(SupportTicket.id == ticket_id).first()
+        if not ticket:
+            return {}
+        
+        context = {
+            "ticket": {
+                "id": ticket.id,
+                "message": ticket.customer_message,
+                "intent": ticket.intent,
+                "sentiment": ticket.sentiment,
+                "priority": ticket.priority,
+                "status": ticket.status,
+                "summary": ticket.ticket_summary,
+                "escalate": ticket.escalate,
+                "assigned_to": ticket.assigned_to
+            }
+        }
+        
+        if ticket.customer_email:
+            customer_info = CustomerContextService.get_customer_info(db, ticket.customer_email)
+            context["customer"] = customer_info
+        
+        return context
+
+    @staticmethod
+    def get_customer_order_history(db: Session, email: str) -> List[dict]:
+        """Get customer order history."""
+        from ..services.customer_context import CustomerContextService
+        return CustomerContextService.get_order_history(db, email)
+
+    @staticmethod
+    def get_customer_ticket_history(db: Session, email: str, limit: int = 10) -> List[dict]:
+        """Get customer ticket history."""
+        from ..services.customer_context import CustomerContextService
+        return CustomerContextService.get_ticket_history(db, email, limit)
+
+    @staticmethod
+    def chat_with_ticket(db: Session, ticket_id: int, question: str) -> dict:
+        """Chat with AI about a ticket."""
+        from ..services.ai_chat import AIChatService
+        return AIChatService.chat(db, ticket_id, question)
+
+    @staticmethod
+    def generate_ai_draft(db: Session, ticket_id: int) -> Optional[SupportTicket]:
+        """Generate an AI draft reply for a ticket."""
+        ticket = db.query(SupportTicket).filter(SupportTicket.id == ticket_id).first()
+        if not ticket:
+            return None
+        
+        from ..services.ai_chat import AIChatService
+        context = AIChatService.get_ticket_context(db, ticket_id)
+        
+        prompt = f"""
+        Draft a professional customer support reply for this ticket.
+
+        Customer Message: {ticket.customer_message}
+        Intent: {ticket.intent}
+        Sentiment: {ticket.sentiment}
+        Priority: {ticket.priority}
+        
+        Customer Info:
+        - Name: {context.get('customer', {}).get('name', '')}
+        - Email: {context.get('customer', {}).get('email', '')}
+        - Previous Tickets: {len(context.get('customer', {}).get('tickets', []))}
+        - Orders: {len(context.get('customer', {}).get('orders', []))}
+        
+        Requirements:
+        - Professional and empathetic
+        - Address the specific concern
+        - Provide clear next steps
+        - 3-5 sentences
+        - If sentiment is negative, start with an apology
+        - Use customer's name if available
+        
+        Return only the draft reply.
+        """
+        
+        draft = call_llm(prompt)
+        ticket.ai_draft = draft
+        db.commit()
+        db.refresh(ticket)
+        
+        return ticket
+
+    @staticmethod
+    def save_agent_notes(db: Session, ticket_id: int, notes: str) -> Optional[SupportTicket]:
+        """Save internal agent notes on a ticket."""
+        ticket = db.query(SupportTicket).filter(SupportTicket.id == ticket_id).first()
+        if not ticket:
+            return None
+        
+        ticket.agent_notes = notes
+        db.commit()
+        db.refresh(ticket)
+        return ticket

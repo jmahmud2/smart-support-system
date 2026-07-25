@@ -12,6 +12,7 @@
   .card {
     @apply bg-white rounded-lg shadow-md p-4 sm:p-6;
   }
+  
   .badge {
     @apply px-2 py-1 text-xs font-medium rounded-full inline-flex items-center;
   }
@@ -34,8 +35,11 @@
     @apply bg-purple-100 text-purple-800;
   }
   .badge-orange {
-  @apply bg-orange-100 text-orange-800;
-}
+    @apply bg-orange-100 text-orange-800;
+  }
+  .badge-cyan {
+    @apply bg-cyan-100 text-cyan-800;
+  }
   
   .btn {
     @apply px-4 py-2 rounded-lg font-medium transition-colors duration-200;

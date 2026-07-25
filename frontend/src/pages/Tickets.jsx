@@ -11,6 +11,16 @@ export default function Tickets() {
   const [customerHistory, setCustomerHistory] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
   
+  // AI Chat states
+  const [customerContext, setCustomerContext] = useState(null);
+  const [chatQuestion, setChatQuestion] = useState('');
+  const [chatResponse, setChatResponse] = useState('');
+  const [chatLoading, setChatLoading] = useState(false);
+  const [aiDraft, setAiDraft] = useState('');
+  const [draftLoading, setDraftLoading] = useState(false);
+  const [agentNotes, setAgentNotes] = useState('');
+  const [notesSaving, setNotesSaving] = useState(false);
+  
   // Filter states
   const [statusFilter, setStatusFilter] = useState('');
   const [intentFilter, setIntentFilter] = useState('');
@@ -41,6 +51,8 @@ export default function Tickets() {
     'Jessica Williams'
   ];
 
+  const currentAgent = 'Sarah Johnson';
+
   // Fetch tickets on load and filter changes
   useEffect(() => {
     fetchTickets();
@@ -59,7 +71,7 @@ export default function Tickets() {
       const response = await apiClient.get('/support/tickets', { params });
       let ticketsData = response.data || [];
       
-      // Client-side search by name, email, or message
+      // Client-side search
       if (searchTerm) {
         const search = searchTerm.toLowerCase();
         ticketsData = ticketsData.filter(ticket => 
@@ -69,11 +81,13 @@ export default function Tickets() {
         );
       }
       
-      // Filter by assignment status
+      // Filter by assignment
       if (assignedFilter === 'unassigned') {
         ticketsData = ticketsData.filter(ticket => !ticket.assigned_to);
       } else if (assignedFilter === 'assigned') {
         ticketsData = ticketsData.filter(ticket => ticket.assigned_to);
+      } else if (assignedFilter === 'my') {
+        ticketsData = ticketsData.filter(ticket => ticket.assigned_to === currentAgent);
       }
       
       setTickets(ticketsData);
@@ -178,12 +192,83 @@ export default function Tickets() {
     }
   };
 
+  // ============ TICKET-CENTRIC AI FUNCTIONS ============
+
+  const fetchCustomerContext = async (ticketId) => {
+    try {
+      const response = await apiClient.get(`/support/tickets/${ticketId}/context`);
+      setCustomerContext(response.data);
+    } catch (error) {
+      console.error('Error fetching customer context:', error);
+    }
+  };
+
+  const handleChatQuestion = async (ticketId) => {
+    if (!chatQuestion.trim() || !ticketId) return;
+    
+    setChatLoading(true);
+    try {
+      const response = await apiClient.post(`/support/tickets/${ticketId}/chat`, {
+        question: chatQuestion
+      });
+      setChatResponse(response.data.answer);
+      setChatQuestion('');
+    } catch (error) {
+      console.error('Error chatting with AI:', error);
+      setChatResponse('Error processing your question. Please try again.');
+    } finally {
+      setChatLoading(false);
+    }
+  };
+
+  const generateAIDraft = async (ticketId) => {
+    if (!ticketId) return;
+    
+    setDraftLoading(true);
+    try {
+      const response = await apiClient.post(`/support/tickets/${ticketId}/generate-draft`);
+      setAiDraft(response.data.draft);
+    } catch (error) {
+      console.error('Error generating AI draft:', error);
+    } finally {
+      setDraftLoading(false);
+    }
+  };
+
+  const saveAgentNotes = async (ticketId) => {
+    if (!agentNotes.trim() || !ticketId) return;
+    
+    setNotesSaving(true);
+    try {
+      await apiClient.post(`/support/tickets/${ticketId}/notes`, {
+        notes: agentNotes
+      });
+      setAgentNotes('');
+      alert('Notes saved successfully!');
+    } catch (error) {
+      console.error('Error saving notes:', error);
+      alert('Failed to save notes');
+    } finally {
+      setNotesSaving(false);
+    }
+  };
+
   const getBadgeColor = (type, value) => {
     if (type === 'sentiment') {
       switch(value) {
         case 'positive': return 'badge-green';
         case 'neutral': return 'badge-yellow';
         case 'negative': return 'badge-red';
+        default: return 'badge-gray';
+      }
+    }
+    if (type === 'intent') {
+      switch(value) {
+        case 'refund': return 'badge-purple';
+        case 'shipping': return 'badge-blue';
+        case 'product_inquiry': return 'badge-cyan';
+        case 'complaint': return 'badge-red';
+        case 'general': return 'badge-gray';
         default: return 'badge-gray';
       }
     }
@@ -246,7 +331,6 @@ export default function Tickets() {
       {/* Filters */}
       <div className="card mb-8">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-          {/* Search */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
             <div className="flex gap-2">
@@ -267,7 +351,6 @@ export default function Tickets() {
             </div>
           </div>
 
-          {/* Status Filter */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
             <select
@@ -285,7 +368,6 @@ export default function Tickets() {
             </select>
           </div>
 
-          {/* Intent Filter */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Intent</label>
             <select
@@ -303,7 +385,6 @@ export default function Tickets() {
             </select>
           </div>
 
-          {/* Assigned Filter */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Assigned</label>
             <select
@@ -317,10 +398,10 @@ export default function Tickets() {
               <option value="">All Tickets</option>
               <option value="unassigned">Unassigned Only</option>
               <option value="assigned">Assigned Only</option>
+              <option value="my">My Tickets</option>
             </select>
           </div>
 
-          {/* Show per page */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Show</label>
             <select
@@ -338,7 +419,6 @@ export default function Tickets() {
           </div>
         </div>
 
-        {/* Clear filters */}
         {(statusFilter || intentFilter || assignedFilter || searchTerm) && (
           <div className="mt-4 pt-4 border-t border-gray-200">
             <button
@@ -375,10 +455,8 @@ export default function Tickets() {
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Message</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Intent</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">AI Analysis</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Priority</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Escalate</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Assigned To</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
@@ -394,6 +472,10 @@ export default function Tickets() {
                     setCustomerHistory([]);
                     setShowHistory(false);
                     setReplyMessage(ticket.response || '');
+                    setCustomerContext(null);
+                    setChatResponse('');
+                    setAiDraft('');
+                    setAgentNotes(ticket.agent_notes || '');
                   }}
                 >
                   <td className="px-4 py-3 text-sm font-medium text-gray-900">#{ticket.id}</td>
@@ -407,23 +489,24 @@ export default function Tickets() {
                     {ticket.customer_message?.substring(0, 60) || 'No message'}
                   </td>
                   <td className="px-4 py-3">
-                    <span className={`badge ${getBadgeColor('sentiment', ticket.intent)}`}>
-                      {ticket.intent || 'unknown'}
-                    </span>
+                    <div className="flex flex-wrap gap-1">
+                      <span className={`badge ${getBadgeColor('intent', ticket.intent)}`}>
+                        {ticket.intent || 'unknown'}
+                      </span>
+                      <span className={`badge ${getBadgeColor('sentiment', ticket.sentiment)}`}>
+                        {ticket.sentiment || 'neutral'}
+                      </span>
+                      <span className={`badge ${getBadgeColor('priority', ticket.priority)}`}>
+                        {ticket.priority || 'low'}
+                      </span>
+                      {ticket.escalate && (
+                        <span className="badge badge-red">Escalated</span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-4 py-3">
                     <span className={`badge ${getBadgeColor('status', ticket.status)}`}>
                       {ticket.status || 'new'}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className={`badge ${getBadgeColor('priority', ticket.priority)}`}>
-                      {ticket.priority || 'low'}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className={`badge ${getBadgeColor('escalate', ticket.escalate)}`}>
-                      {ticket.escalate ? 'Yes' : 'No'}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-500 max-w-[100px] truncate">
@@ -580,7 +663,7 @@ export default function Tickets() {
       {/* Ticket Detail Modal */}
       {showDetail && selectedTicket && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex items-start justify-between mb-4">
                 <div>
@@ -620,7 +703,7 @@ export default function Tickets() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <p className="text-sm text-gray-500">Intent</p>
-                    <span className={`badge ${getBadgeColor('sentiment', selectedTicket.intent)}`}>
+                    <span className={`badge ${getBadgeColor('intent', selectedTicket.intent)}`}>
                       {selectedTicket.intent || 'unknown'}
                     </span>
                   </div>
@@ -675,7 +758,6 @@ export default function Tickets() {
                   <p className="text-gray-600 text-sm">{selectedTicket.reasoning || 'No reasoning provided'}</p>
                 </div>
 
-                {/* Customer History Button */}
                 {selectedTicket.customer_email && (
                   <div className="pt-2">
                     <button
@@ -687,7 +769,6 @@ export default function Tickets() {
                   </div>
                 )}
 
-                {/* Customer History Display */}
                 {showHistory && customerHistory.length > 0 && (
                   <div>
                     <h4 className="text-sm font-medium text-gray-700 mb-2">Previous Tickets</h4>
@@ -709,7 +790,145 @@ export default function Tickets() {
                     </div>
                   </div>
                 )}
-                
+
+                {/* ============ TICKET-CENTRIC AI FEATURES ============ */}
+
+                {/* Customer Context Section */}
+                <div className="pt-4 border-t border-gray-200">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-sm font-medium text-gray-700">👤 Customer Context</h3>
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => {
+                        if (selectedTicket?.id) {
+                          fetchCustomerContext(selectedTicket.id);
+                        }
+                      }}
+                    >
+                      Load Context
+                    </button>
+                  </div>
+
+                  {customerContext && (
+                    <div className="space-y-3">
+                      {/* Order History */}
+                      {customerContext.customer?.orders && customerContext.customer.orders.length > 0 && (
+                        <div>
+                          <p className="text-xs font-medium text-gray-500">Order History</p>
+                          <div className="space-y-1 mt-1">
+                            {customerContext.customer.orders.slice(0, 3).map((order, idx) => (
+                              <div key={idx} className="text-sm text-gray-600 bg-gray-50 p-2 rounded">
+                                {order.product_name} - {order.status}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Ticket History */}
+                      {customerContext.customer?.tickets && customerContext.customer.tickets.length > 1 && (
+                        <div>
+                          <p className="text-xs font-medium text-gray-500">Previous Tickets</p>
+                          <div className="space-y-1 mt-1">
+                            {customerContext.customer.tickets.filter(t => t.id !== selectedTicket.id).slice(0, 3).map((t) => (
+                              <div key={t.id} className="text-sm text-gray-600 bg-gray-50 p-2 rounded flex justify-between">
+                                <span>#{t.id} - {t.summary || t.message?.substring(0, 30)}</span>
+                                <span className={`badge ${getBadgeColor('status', t.status)}`}>{t.status}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Customer Summary */}
+                      {customerContext.customer?.summary && (
+                        <div className="text-xs text-gray-500">
+                          <span>Total: {customerContext.customer.summary.total_tickets} | </span>
+                          <span>Resolved: {customerContext.customer.summary.resolved_tickets} | </span>
+                          <span>Open: {customerContext.customer.summary.open_tickets}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* AI Chat Assistant */}
+                <div className="pt-4 border-t border-gray-200">
+                  <h3 className="text-sm font-medium text-gray-700 mb-2">💬 AI Assistant</h3>
+                  <div className="space-y-2">
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        className="input flex-1"
+                        placeholder="Ask about this customer (e.g., 'What did they buy?', 'Draft a reply')"
+                        value={chatQuestion}
+                        onChange={(e) => setChatQuestion(e.target.value)}
+                        onKeyPress={(e) => e.key === 'Enter' && handleChatQuestion(selectedTicket?.id)}
+                      />
+                      <button
+                        className="btn btn-primary btn-sm whitespace-nowrap"
+                        onClick={() => handleChatQuestion(selectedTicket?.id)}
+                        disabled={!chatQuestion.trim() || chatLoading}
+                      >
+                        {chatLoading ? 'Thinking...' : 'Ask AI'}
+                      </button>
+                    </div>
+                    
+                    {chatResponse && (
+                      <div className="p-3 bg-blue-50 rounded-lg border border-blue-200 mt-2">
+                        <p className="text-sm text-gray-700 whitespace-pre-wrap">{chatResponse}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* AI Draft Section */}
+                <div className="pt-4 border-t border-gray-200">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-sm font-medium text-gray-700">✍️ AI Draft Reply</h3>
+                    <button
+                      className="btn btn-primary btn-sm"
+                      onClick={() => generateAIDraft(selectedTicket?.id)}
+                      disabled={draftLoading}
+                    >
+                      {draftLoading ? 'Generating...' : 'Generate Draft'}
+                    </button>
+                  </div>
+                  
+                  {aiDraft && (
+                    <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                      <p className="text-sm text-gray-700 whitespace-pre-wrap">{aiDraft}</p>
+                      <button
+                        className="btn btn-secondary btn-sm mt-2"
+                        onClick={() => {
+                          setReplyMessage(aiDraft);
+                          setAiDraft('');
+                        }}
+                      >
+                        Use This Draft
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Agent Notes */}
+                <div className="pt-4 border-t border-gray-200">
+                  <h3 className="text-sm font-medium text-gray-700 mb-2">📝 Internal Notes</h3>
+                  <textarea
+                    className="input min-h-[60px]"
+                    placeholder="Add internal notes for other agents..."
+                    value={agentNotes}
+                    onChange={(e) => setAgentNotes(e.target.value)}
+                  />
+                  <button
+                    className="btn btn-secondary btn-sm mt-2"
+                    onClick={() => saveAgentNotes(selectedTicket?.id)}
+                    disabled={!agentNotes.trim() || notesSaving}
+                  >
+                    {notesSaving ? 'Saving...' : 'Save Notes'}
+                  </button>
+                </div>
+
                 {/* Reply Section */}
                 <div className="pt-4 border-t border-gray-200">
                   <label className="block text-sm font-medium text-gray-700 mb-2">Reply</label>

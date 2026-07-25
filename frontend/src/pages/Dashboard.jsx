@@ -14,6 +14,14 @@ export default function Dashboard() {
   const [aiSummary, setAiSummary] = useState(null);
   const [showSummary, setShowSummary] = useState(false);
 
+  const exampleMessages = [
+    "My laptop screen is cracked. I need a replacement urgently.",
+    "When will my order arrive? It's been 3 days since I placed it.",
+    "Which laptop do you recommend for programming and gaming?",
+    "The product I received is defective. I want a full refund.",
+    "I love my new headphones! They sound amazing."
+  ];
+
   useEffect(() => {
     fetchDashboardData();
     fetchSentimentTrends();
@@ -112,6 +120,13 @@ export default function Dashboard() {
     setSaveSuccess(false);
   };
 
+  const loadExample = () => {
+    const randomIndex = Math.floor(Math.random() * exampleMessages.length);
+    setMessage(exampleMessages[randomIndex]);
+    setAnalysisResult(null);
+    setSaveSuccess(false);
+  };
+
   const getBadgeColor = (type, value) => {
     if (type === 'sentiment') {
       switch(value) {
@@ -127,6 +142,16 @@ export default function Dashboard() {
         case 'high': return 'badge-orange';
         case 'medium': return 'badge-yellow';
         case 'low': return 'badge-gray';
+        default: return 'badge-gray';
+      }
+    }
+    if (type === 'intent') {
+      switch(value) {
+        case 'refund': return 'badge-purple';
+        case 'shipping': return 'badge-blue';
+        case 'product_inquiry': return 'badge-cyan';
+        case 'complaint': return 'badge-red';
+        case 'general': return 'badge-gray';
         default: return 'badge-gray';
       }
     }
@@ -155,13 +180,11 @@ export default function Dashboard() {
 
   return (
     <div>
-      {/* Page Header */}
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
         <p className="text-gray-600 mt-1">AI-powered support overview and analytics</p>
       </div>
 
-      {/* Stats Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <div className="card">
           <p className="text-sm text-gray-500">Total Tickets</p>
@@ -181,7 +204,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Sentiment Trends Cards */}
       {sentimentTrends && (
         <div className="card mb-8">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">📈 Sentiment Distribution</h2>
@@ -209,9 +231,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Two Column Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* AI Support Analyzer */}
         <div className="card">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">🤖 AI Support Assistant</h2>
           
@@ -224,6 +244,12 @@ export default function Dashboard() {
             />
             
             <div className="flex flex-wrap gap-2">
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={loadExample}
+              >
+                📋 Load Example
+              </button>
               <button
                 className="btn btn-primary flex-1"
                 onClick={handleAnalyze}
@@ -256,28 +282,24 @@ export default function Dashboard() {
                 </div>
                 <p className="text-sm font-medium text-gray-700">Intent: {analysisResult.intent}</p>
                 
-                {/* Sentiment Explanation */}
                 {analysisResult.sentiment_explanation && (
                   <p className="text-sm text-gray-600">
                     <span className="font-medium">Sentiment reason:</span> {analysisResult.sentiment_explanation}
                   </p>
                 )}
                 
-                {/* Priority Reasoning */}
                 {analysisResult.priority_reasoning && (
                   <p className="text-sm text-gray-600">
                     <span className="font-medium">Priority reason:</span> {analysisResult.priority_reasoning}
                   </p>
                 )}
                 
-                {/* Escalation Reasoning */}
                 {analysisResult.escalate_reasoning && (
                   <p className="text-sm text-gray-600">
                     <span className="font-medium">Escalation reason:</span> {analysisResult.escalate_reasoning}
                   </p>
                 )}
                 
-                {/* Ticket Summary */}
                 {analysisResult.ticket_summary && (
                   <div className="p-2 bg-purple-50 rounded border border-purple-200">
                     <p className="text-sm text-purple-700">
@@ -286,18 +308,12 @@ export default function Dashboard() {
                   </div>
                 )}
                 
-                {/* Assigned Agent */}
                 {analysisResult.assigned_agent && (
                   <p className="text-sm text-gray-600">
                     <span className="font-medium">Assigned to:</span> {analysisResult.assigned_agent}
                   </p>
                 )}
                 
-                {analysisResult.reasoning && (
-                  <p className="text-sm text-gray-600">{analysisResult.reasoning}</p>
-                )}
-                
-                {/* Product Recommendations */}
                 {analysisResult.recommended_products && analysisResult.recommended_products.length > 0 && (
                   <div className="mt-2">
                     <p className="text-sm font-medium text-gray-700">📦 Recommended Products:</p>
@@ -315,7 +331,6 @@ export default function Dashboard() {
                   <p className="text-sm text-gray-700">{analysisResult.response}</p>
                 </div>
                 
-                {/* Save Ticket Button */}
                 <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-200">
                   <button
                     className="btn btn-primary flex-1"
@@ -336,7 +351,6 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Recent Tickets */}
         <div className="card">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-900">🎫 Recent Tickets</h2>
@@ -363,6 +377,9 @@ export default function Dashboard() {
                         <span className={`badge ${getBadgeColor('status', ticket.status)}`}>
                           {ticket.status}
                         </span>
+                        <span className={`badge ${getBadgeColor('intent', ticket.intent)}`}>
+                          {ticket.intent}
+                        </span>
                         <span className={`badge ${getBadgeColor('sentiment', ticket.sentiment)}`}>
                           {ticket.sentiment}
                         </span>
@@ -385,7 +402,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* AI Summary Section */}
       <div className="card mt-8">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-gray-900">📊 AI Ticket Summary</h2>
@@ -414,7 +430,6 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* Intent Breakdown */}
       {stats?.intent_breakdown && (
         <div className="card mt-8">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">📊 Intent Distribution</h2>

@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, LayoutDashboard, Package, Ticket } from 'lucide-react';
 
 const navigation = [
-  { name: 'Dashboard', href: '/', icon: LayoutDashboard },
-  { name: 'Products', href: '/products', icon: Package },
-  { name: 'Tickets', href: '/tickets', icon: Ticket },
+  { name: 'Dashboard', href: '/' },
+  { name: 'Products', href: '/products' },
+  { name: 'Tickets', href: '/tickets' },
+  { name: 'Agent Dashboard', href: '/agent' },
+  { name: 'Submit Ticket', href: '/submit' },
 ];
 
 export default function Layout({ children }) {
@@ -42,23 +43,19 @@ export default function Layout({ children }) {
 
             {/* Desktop Navigation */}
             <div className="hidden lg:flex lg:items-center lg:gap-1">
-              {navigation.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <Link
-                    key={item.name}
-                    to={item.href}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      isActive(item.href)
-                        ? 'bg-primary-50 text-primary-700'
-                        : 'text-gray-700 hover:bg-gray-100'
-                    }`}
-                  >
-                    <Icon className="h-4 w-4" />
-                    {item.name}
-                  </Link>
-                );
-              })}
+              {navigation.map((item) => (
+                <Link
+                  key={item.name}
+                  to={item.href}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    isActive(item.href)
+                      ? 'bg-primary-50 text-primary-700'
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  {item.name}
+                </Link>
+              ))}
             </div>
 
             {/* Mobile menu button */}
@@ -68,11 +65,7 @@ export default function Layout({ children }) {
                 className="p-2 rounded-lg text-gray-600 hover:bg-gray-100"
                 aria-label="Toggle menu"
               >
-                {mobileMenuOpen ? (
-                  <X className="h-6 w-6" />
-                ) : (
-                  <Menu className="h-6 w-6" />
-                )}
+                {mobileMenuOpen ? '✕' : '☰'}
               </button>
             </div>
           </div>
@@ -85,24 +78,20 @@ export default function Layout({ children }) {
           }`}
         >
           <div className="px-4 py-4 space-y-2">
-            {navigation.map((item) => {
-              const Icon = item.icon;
-              return (
-                <Link
-                  key={item.name}
-                  to={item.href}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-lg text-base font-medium transition-colors ${
-                    isActive(item.href)
-                      ? 'bg-primary-50 text-primary-700'
-                      : 'text-gray-700 hover:bg-gray-100'
-                  }`}
-                >
-                  <Icon className="h-5 w-5" />
-                  {item.name}
-                </Link>
-              );
-            })}
+            {navigation.map((item) => (
+              <Link
+                key={item.name}
+                to={item.href}
+                onClick={() => setMobileMenuOpen(false)}
+                className={`block px-4 py-3 rounded-lg text-base font-medium ${
+                  isActive(item.href)
+                    ? 'bg-primary-50 text-primary-700'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                {item.name}
+              </Link>
+            ))}
           </div>
         </div>
       </nav>

@@ -1,6 +1,5 @@
 """
 Pydantic schemas for support ticket operations.
-Defines request/response models for the support API.
 """
 
 from pydantic import BaseModel
@@ -9,7 +8,6 @@ from datetime import datetime
 
 
 class SupportTicketBase(BaseModel):
-    """Base schema for support tickets."""
     customer_name: Optional[str] = None
     customer_email: Optional[str] = None
     customer_message: str
@@ -17,12 +15,10 @@ class SupportTicketBase(BaseModel):
 
 
 class SupportTicketCreate(SupportTicketBase):
-    """Schema for creating a new support ticket."""
     pass
 
 
 class SupportTicket(SupportTicketBase):
-    """Schema for returning support ticket data."""
     id: int
     intent: Optional[str] = None
     sentiment: Optional[str] = None
@@ -39,19 +35,23 @@ class SupportTicket(SupportTicketBase):
     assigned_to: Optional[str] = None
     assigned_agent: Optional[str] = None
     ticket_summary: Optional[str] = None
+    customer_id: Optional[str] = None
+    order_history: Optional[str] = None
+    agent_notes: Optional[str] = None
+    ai_draft: Optional[str] = None
 
     class Config:
         from_attributes = True
 
 
 class SupportAnalysisRequest(BaseModel):
-    """Request schema for analyzing a customer message."""
     message: str
     product_id: Optional[int] = None
+    ticket_id: Optional[int] = None  # For context-aware analysis
+    question: Optional[str] = None   # For AI chat
 
 
 class SupportAnalysisResponse(BaseModel):
-    """Response schema for workflow analysis results."""
     ticket_id: Optional[int] = None
     intent: str
     sentiment: str
@@ -66,3 +66,13 @@ class SupportAnalysisResponse(BaseModel):
     assigned_agent: Optional[str] = ""
     ticket_summary: Optional[str] = ""
     similar_tickets: Optional[List[dict]] = []
+
+
+class AgentChatRequest(BaseModel):
+    ticket_id: int
+    question: str
+
+
+class AgentChatResponse(BaseModel):
+    answer: str
+    context: Optional[dict] = None

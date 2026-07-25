@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from pydantic import BaseModel
 
 from ..database.database import get_db
-from ..database.models import Product, SupportTicket
+from ..database.models import Product, SupportTicket as SupportTicketModel
 from ..controllers.support_controller import SupportController
 from ..schemas.support import (
     SupportTicketCreate,
@@ -24,6 +24,18 @@ router = APIRouter()
 
 class ReplyRequest(BaseModel):
     message: str
+
+
+@router.get("/agent/me")
+async def get_current_agent():
+    """Get the current agent's information."""
+    # In production, this would come from JWT/session
+    # For now, we'll return a default agent
+    return {
+        "name": "Sarah Johnson",
+        "role": "agent",
+        "email": "sarah.johnson@company.com"
+    }
 
 
 @router.post("/analyze", response_model=SupportAnalysisResponse)
@@ -182,7 +194,7 @@ async def send_reply(
     db: Session = Depends(get_db)
 ):
     """Send a reply to a ticket and mark it as resolved."""
-    ticket = db.query(SupportTicket).filter(SupportTicket.id == ticket_id).first()
+    ticket = db.query(SupportTicketModel).filter(SupportTicketModel.id == ticket_id).first()
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
 
@@ -206,10 +218,9 @@ async def get_customer_history(
     db: Session = Depends(get_db)
 ):
     """Get all tickets from a specific customer."""
-    tickets = db.query(SupportTicket).filter(
-        SupportTicket.customer_email == email
-    ).order_by(SupportTicket.created_at.desc()).all()
-
+    tickets = db.query(SupportTicketModel).filter(
+        SupportTicketModel.customer_email == email
+    ).order_by(SupportTicketModel.created_at.desc()).all()
     return tickets
 
 
@@ -248,3 +259,115 @@ async def get_unassigned_tickets(
     """Get tickets that haven't been assigned to anyone."""
     tickets = SupportController.get_unassigned_tickets(db, limit, offset)
     return tickets
+
+
+# ============ TICKET-CENTRIC AI ROUTES ============
+
+@router.get("/tickets/{ticket_id}/context")
+async def get_ticket_context(
+    ticket_id: int,
+    db: Session = Depends(get_db)
+):
+    """Get customer context for a ticket."""
+    context = SupportController.get_ticket_context(db, ticket_id)
+    if not context:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+    return context
+
+
+@router.get("/tickets/{ticket_id}/customer-orders")
+async def get_customer_orders(
+    ticket_id: int,
+    db: Session = Depends(get_db)
+):
+    """Get customer order history for a ticket."""
+    ticket = db.query(SupportTicketModel).filter(SupportTicketModel.id == ticket_id).first()
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+    
+    if not ticket.customer_email:
+        return {"orders": []}
+    
+    orders = SupportController.get_customer_order_history(db, ticket.customer_email)
+    return {"orders": orders}
+
+
+@router.get("/tickets/{ticket_id}/customer-history")
+async def get_customer_ticket_history(
+    ticket_id: int,
+    limit: int = Query(10, ge=1, le=50),
+    db: Session = Depends(get_db)
+):
+    """Get customer ticket history."""
+    ticket = db.query(SupportTicketModel).filter(SupportTicketModel.id == ticket_id).first()
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+    
+    if not ticket.customer_email:
+        return {"tickets": []}
+    
+    tickets = SupportController.get_customer_ticket_history(db, ticket.customer_email, limit)
+    return {"tickets": tickets}
+
+
+@router.post("/tickets/{ticket_id}/chat")
+async def chat_with_ticket(
+    ticket_id: int,
+    chat_request: dict,
+    db: Session = Depends(get_db)
+):
+    """Chat with AI about a ticket."""
+    question = chat_request.get("question", "")
+    if not question:
+        raise HTTPException(status_code=400, detail="Question is required")
+    
+    result = SupportController.chat_with_ticket(db, ticket_id, question)
+    return result
+
+
+@router.post("/tickets/{ticket_id}/generate-draft")
+async def generate_ai_draft(
+    ticket_id: int,
+    db: Session = Depends(get_db)
+):
+    """Generate an AI draft reply for a ticket."""
+    ticket = SupportController.generate_ai_draft(db, ticket_id)
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+    return {"draft": ticket.ai_draft, "ticket_id": ticket.id}
+
+
+@router.post("/tickets/{ticket_id}/notes")
+async def save_agent_notes(
+    ticket_id: int,
+    notes_data: dict,
+    db: Session = Depends(get_db)
+):
+    """Save internal agent notes on a ticket."""
+    notes = notes_data.get("notes", "")
+    ticket = SupportController.save_agent_notes(db, ticket_id, notes)
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+    return {"success": True, "ticket_id": ticket.id, "notes": ticket.agent_notes}
+
+
+@router.post("/tickets/seed-orders")
+async def seed_sample_orders(
+    db: Session = Depends(get_db)
+):
+    """Seed sample order data for customers."""
+    from ..services.customer_context import CustomerContextService
+    CustomerContextService.seed_sample_orders(db)
+    return {"message": "Sample orders seeded successfully"}
+
+
+@router.get("/tickets/{ticket_id}/draft")
+async def get_ai_draft(
+    ticket_id: int,
+    db: Session = Depends(get_db)
+):
+    """Get the latest AI draft for a ticket."""
+    ticket = db.query(SupportTicketModel).filter(SupportTicketModel.id == ticket_id).first()
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+    return {"draft": ticket.ai_draft, "ticket_id": ticket.id}
