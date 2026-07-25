@@ -2,9 +2,11 @@
 Workflow node implementations for the customer support system.
 """
 
+import json
 from .state import SupportState
 from .llm import call_llm
 from ..utils.logger import get_logger
+from ..services.ai_features import AIFeaturesService
 
 logger = get_logger(__name__)
 
@@ -12,7 +14,7 @@ logger = get_logger(__name__)
 def classify_intent(state: SupportState) -> dict:
     """Classify the customer's intent using the LLM."""
     message = state.get("customer_message", "")
-    logger.info(f"Classifying intent: {message[:50]}...")
+    logger.info(f" Classifying intent: {message[:50]}...")
 
     prompt = f"""
     Classify this customer message into ONE category: refund, shipping, product_inquiry, complaint, or general.
@@ -64,7 +66,7 @@ def assign_priority_ai(state: SupportState) -> dict:
     message = state.get("customer_message", "")
     intent = state.get("intent", "general")
     sentiment = state.get("sentiment", "neutral")
-    logger.info(f"Assigning priority: {message[:50]}...")
+    logger.info(f" Assigning priority: {message[:50]}...")
 
     prompt = f"""
     Assign a priority to this message. Return only ONE word: urgent, high, medium, or low.
@@ -256,3 +258,90 @@ def check_escalation_ai(state: SupportState) -> dict:
     result = {"escalate": escalate, "escalate_reasoning": reasoning}
     logger.info(f"   Escalate: {escalate} - {reasoning}")
     return result
+
+
+# ============ NEW AI FEATURE NODES ============
+
+def generate_reply_options(state: SupportState) -> dict:
+    """Generate 3 reply options with different tones."""
+    message = state.get("customer_message", "")
+    intent = state.get("intent", "general")
+    sentiment = state.get("sentiment", "neutral")
+    logger.info(f" Generating reply options: {message[:50]}...")
+    
+    options = AIFeaturesService.generate_reply_options(message, intent, sentiment)
+    logger.info(f"   Generated {len(options)} options")
+    return {"reply_options": options}
+
+
+def evaluate_response_quality(state: SupportState) -> dict:
+    """Self-evaluate the quality of the AI response."""
+    response = state.get("response", "")
+    message = state.get("customer_message", "")
+    intent = state.get("intent", "general")
+    sentiment = state.get("sentiment", "neutral")
+    logger.info(f" Evaluating response quality")
+    
+    score = AIFeaturesService.evaluate_response(response, message, intent, sentiment)
+    logger.info(f"   Overall score: {score.get('overall_score', 'N/A')}")
+    return {"quality_score": score}
+
+
+def get_knowledge_base_articles(state: SupportState) -> dict:
+    """Retrieve relevant knowledge base articles."""
+    message = state.get("customer_message", "")
+    intent = state.get("intent", "general")
+    logger.info(f" Retrieving KB articles: {message[:50]}...")
+    
+    articles = AIFeaturesService.get_knowledge_base_articles(message, intent)
+    logger.info(f"   Found {len(articles)} articles")
+    return {"kb_articles": articles}
+
+
+def predict_churn_risk(state: SupportState) -> dict:
+    """Predict customer churn risk."""
+    logger.info(f" Predicting churn risk")
+    
+    # In real implementation, this would use customer history from DB
+    # For now, use the ticket data
+    history = {"summary": {"total_tickets": 5, "sentiment_score": -0.2, "escalated_tickets": 1}}
+    message = state.get("customer_message", "")
+    
+    risk = AIFeaturesService.predict_churn_risk(history, message)
+    logger.info(f"   Churn risk: {risk.get('risk_level', 'unknown')}")
+    return {"churn_risk": risk}
+
+
+def detect_followup_needed(state: SupportState) -> dict:
+    """Detect if a follow-up is needed."""
+    message = state.get("customer_message", "")
+    sentiment = state.get("sentiment", "neutral")
+    priority = state.get("priority", "medium")
+    logger.info(f" Checking follow-up need")
+    
+    followup = AIFeaturesService.detect_followup_needed(message, sentiment, priority, {})
+    logger.info(f"   Follow-up needed: {followup.get('needs_followup', False)}")
+    return {"needs_followup": followup}
+
+
+def detect_language(state: SupportState) -> dict:
+    """Detect the language of the customer message."""
+    message = state.get("customer_message", "")
+    logger.info(f" Detecting language: {message[:30]}...")
+    
+    language = AIFeaturesService.detect_language(message)
+    logger.info(f"   Language: {language.get('language', 'unknown')}")
+    return {"language": language}
+
+
+def predict_resolution_time(state: SupportState) -> dict:
+    """Predict resolution time."""
+    message = state.get("customer_message", "")
+    intent = state.get("intent", "general")
+    priority = state.get("priority", "medium")
+    sentiment = state.get("sentiment", "neutral")
+    logger.info(f"⏱ Predicting resolution time")
+    
+    time_prediction = AIFeaturesService.predict_resolution_time(message, intent, priority, sentiment)
+    logger.info(f"   Estimated: {time_prediction.get('estimated_hours', 'N/A')} hours")
+    return {"resolution_time": time_prediction}

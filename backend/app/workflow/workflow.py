@@ -15,30 +15,23 @@ from .nodes import (
     recommend_products,
     generate_response,
     check_escalation_ai,
+    generate_reply_options,
+    evaluate_response_quality,
+    get_knowledge_base_articles,
+    predict_churn_risk,
+    detect_followup_needed,
+    detect_language,
+    predict_resolution_time,
 )
 
 
 def build_graph():
     """
-    Build and compile the LangGraph workflow.
-
-    The workflow follows this pipeline:
-    1. classify_intent - Determine what the customer wants
-    2. analyze_sentiment - Understand the customer's emotional state with explanation
-    3. assign_priority_ai - Set urgency level using AI
-    4. generate_ticket_summary - Create a 1-sentence summary
-    5. intelligent_routing - Route to the right agent
-    6. find_similar_tickets - Find similar past tickets
-    7. recommend_products - Suggest relevant products
-    8. generate_response - Create an AI response
-    9. check_escalation_ai - Decide if a human should intervene using AI
-
-    Returns:
-        A compiled LangGraph StateGraph ready for execution
+    Build and compile the LangGraph workflow with all AI features.
     """
     workflow = StateGraph(SupportState)
 
-    # Add processing nodes
+    # Core nodes
     workflow.add_node("classify_intent", classify_intent)
     workflow.add_node("analyze_sentiment", analyze_sentiment)
     workflow.add_node("assign_priority_ai", assign_priority_ai)
@@ -48,6 +41,15 @@ def build_graph():
     workflow.add_node("recommend_products", recommend_products)
     workflow.add_node("generate_response", generate_response)
     workflow.add_node("check_escalation_ai", check_escalation_ai)
+    
+    # New AI feature nodes
+    workflow.add_node("generate_reply_options", generate_reply_options)
+    workflow.add_node("evaluate_response_quality", evaluate_response_quality)
+    workflow.add_node("get_knowledge_base_articles", get_knowledge_base_articles)
+    workflow.add_node("predict_churn_risk", predict_churn_risk)
+    workflow.add_node("detect_followup_needed", detect_followup_needed)
+    workflow.add_node("detect_language", detect_language)
+    workflow.add_node("predict_resolution_time", predict_resolution_time)
 
     # Define the execution flow
     workflow.set_entry_point("classify_intent")
@@ -57,27 +59,26 @@ def build_graph():
     workflow.add_edge("generate_ticket_summary", "intelligent_routing")
     workflow.add_edge("intelligent_routing", "find_similar_tickets")
     workflow.add_edge("find_similar_tickets", "recommend_products")
-    workflow.add_edge("recommend_products", "generate_response")
-    workflow.add_edge("generate_response", "check_escalation_ai")
+    workflow.add_edge("recommend_products", "generate_reply_options")
+    workflow.add_edge("generate_reply_options", "detect_language")
+    workflow.add_edge("detect_language", "predict_resolution_time")
+    workflow.add_edge("predict_resolution_time", "predict_churn_risk")
+    workflow.add_edge("predict_churn_risk", "detect_followup_needed")
+    workflow.add_edge("detect_followup_needed", "get_knowledge_base_articles")
+    workflow.add_edge("get_knowledge_base_articles", "generate_response")
+    workflow.add_edge("generate_response", "evaluate_response_quality")
+    workflow.add_edge("evaluate_response_quality", "check_escalation_ai")
     workflow.add_edge("check_escalation_ai", END)
 
-    # Compile the graph for execution
     return workflow.compile()
 
 
 def process_message(message: str) -> dict:
     """
     Process a customer message through the complete workflow.
-
-    Args:
-        message: The customer's message text
-
-    Returns:
-        Complete state dictionary with all analysis results
     """
     graph = build_graph()
 
-    # Initialize the state with the customer message
     initial_state = {
         "customer_message": message,
         "intent": None,
@@ -94,8 +95,15 @@ def process_message(message: str) -> dict:
         "assigned_agent": None,
         "ticket_summary": None,
         "similar_tickets": [],
+        "reply_options": [],
+        "quality_score": None,
+        "kb_articles": [],
+        "churn_risk": None,
+        "needs_followup": None,
+        "language": None,
+        "resolution_time": None,
+        "feedback_analysis": None,
     }
 
-    # Execute the workflow
     result = graph.invoke(initial_state)
     return result

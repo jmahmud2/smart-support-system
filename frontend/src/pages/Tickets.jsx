@@ -11,15 +11,19 @@ export default function Tickets() {
   const [customerHistory, setCustomerHistory] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
   
-  // AI Chat states
-  const [customerContext, setCustomerContext] = useState(null);
-  const [chatQuestion, setChatQuestion] = useState('');
-  const [chatResponse, setChatResponse] = useState('');
-  const [chatLoading, setChatLoading] = useState(false);
-  const [aiDraft, setAiDraft] = useState('');
-  const [draftLoading, setDraftLoading] = useState(false);
-  const [agentNotes, setAgentNotes] = useState('');
-  const [notesSaving, setNotesSaving] = useState(false);
+  // AI Features state
+  const [replyOptions, setReplyOptions] = useState([]);
+  const [qualityScore, setQualityScore] = useState(null);
+  const [kbArticles, setKbArticles] = useState([]);
+  const [churnRisk, setChurnRisk] = useState(null);
+  const [followupInfo, setFollowupInfo] = useState(null);
+  const [ticketLanguage, setTicketLanguage] = useState(null);
+  const [resolutionTime, setResolutionTime] = useState(null);
+  const [feedbackAnalysis, setFeedbackAnalysis] = useState(null);
+  const [showFeedbackForm, setShowFeedbackForm] = useState(false);
+  const [feedbackText, setFeedbackText] = useState('');
+  const [analyzing, setAnalyzing] = useState(false);
+  const [loadingFeatures, setLoadingFeatures] = useState(false);
   
   // Filter states
   const [statusFilter, setStatusFilter] = useState('');
@@ -71,7 +75,6 @@ export default function Tickets() {
       const response = await apiClient.get('/support/tickets', { params });
       let ticketsData = response.data || [];
       
-      // Client-side search
       if (searchTerm) {
         const search = searchTerm.toLowerCase();
         ticketsData = ticketsData.filter(ticket => 
@@ -81,7 +84,6 @@ export default function Tickets() {
         );
       }
       
-      // Filter by assignment
       if (assignedFilter === 'unassigned') {
         ticketsData = ticketsData.filter(ticket => !ticket.assigned_to);
       } else if (assignedFilter === 'assigned') {
@@ -192,64 +194,120 @@ export default function Tickets() {
     }
   };
 
-  // ============ TICKET-CENTRIC AI FUNCTIONS ============
+  // ============ AI FEATURES FUNCTIONS ============
 
-  const fetchCustomerContext = async (ticketId) => {
-    try {
-      const response = await apiClient.get(`/support/tickets/${ticketId}/context`);
-      setCustomerContext(response.data);
-    } catch (error) {
-      console.error('Error fetching customer context:', error);
-    }
-  };
-
-  const handleChatQuestion = async (ticketId) => {
-    if (!chatQuestion.trim() || !ticketId) return;
-    
-    setChatLoading(true);
-    try {
-      const response = await apiClient.post(`/support/tickets/${ticketId}/chat`, {
-        question: chatQuestion
-      });
-      setChatResponse(response.data.answer);
-      setChatQuestion('');
-    } catch (error) {
-      console.error('Error chatting with AI:', error);
-      setChatResponse('Error processing your question. Please try again.');
-    } finally {
-      setChatLoading(false);
-    }
-  };
-
-  const generateAIDraft = async (ticketId) => {
+  const fetchReplyOptions = async (ticketId) => {
     if (!ticketId) return;
-    
-    setDraftLoading(true);
+    setLoadingFeatures(true);
     try {
-      const response = await apiClient.post(`/support/tickets/${ticketId}/generate-draft`);
-      setAiDraft(response.data.draft);
+      const response = await apiClient.post(`/support/tickets/${ticketId}/reply-options`);
+      setReplyOptions(response.data.options || []);
     } catch (error) {
-      console.error('Error generating AI draft:', error);
+      console.error('Error fetching reply options:', error);
     } finally {
-      setDraftLoading(false);
+      setLoadingFeatures(false);
     }
   };
 
-  const saveAgentNotes = async (ticketId) => {
-    if (!agentNotes.trim() || !ticketId) return;
-    
-    setNotesSaving(true);
+  const evaluateResponse = async (ticketId) => {
+    if (!ticketId) return;
     try {
-      await apiClient.post(`/support/tickets/${ticketId}/notes`, {
-        notes: agentNotes
-      });
-      setAgentNotes('');
-      alert('Notes saved successfully!');
+      const response = await apiClient.post(`/support/tickets/${ticketId}/evaluate-response`);
+      setQualityScore(response.data.quality_score);
     } catch (error) {
-      console.error('Error saving notes:', error);
-      alert('Failed to save notes');
+      console.error('Error evaluating response:', error);
+    }
+  };
+
+  const fetchKnowledgeBase = async (ticketId) => {
+    if (!ticketId) return;
+    try {
+      const response = await apiClient.get(`/support/tickets/${ticketId}/knowledge-base`);
+      setKbArticles(response.data.articles || []);
+    } catch (error) {
+      console.error('Error fetching knowledge base:', error);
+    }
+  };
+
+  const fetchChurnRisk = async (ticketId) => {
+    if (!ticketId) return;
+    try {
+      const response = await apiClient.get(`/support/tickets/${ticketId}/churn-risk`);
+      setChurnRisk(response.data.churn_risk);
+    } catch (error) {
+      console.error('Error fetching churn risk:', error);
+    }
+  };
+
+  const fetchFollowupInfo = async (ticketId) => {
+    if (!ticketId) return;
+    try {
+      const response = await apiClient.get(`/support/tickets/${ticketId}/followup`);
+      setFollowupInfo(response.data.followup);
+    } catch (error) {
+      console.error('Error fetching followup info:', error);
+    }
+  };
+
+  const fetchLanguage = async (ticketId) => {
+    if (!ticketId) return;
+    try {
+      const response = await apiClient.get(`/support/tickets/${ticketId}/language`);
+      setTicketLanguage(response.data.language);
+    } catch (error) {
+      console.error('Error fetching language:', error);
+    }
+  };
+
+  const fetchResolutionTime = async (ticketId) => {
+    if (!ticketId) return;
+    try {
+      const response = await apiClient.get(`/support/tickets/${ticketId}/resolution-time`);
+      setResolutionTime(response.data.resolution_time);
+    } catch (error) {
+      console.error('Error fetching resolution time:', error);
+    }
+  };
+
+  const submitFeedback = async (ticketId) => {
+    if (!feedbackText.trim()) {
+      alert('Please enter feedback');
+      return;
+    }
+    setAnalyzing(true);
+    try {
+      const response = await apiClient.post(`/support/tickets/${ticketId}/feedback`, {
+        feedback: feedbackText
+      });
+      setFeedbackAnalysis(response.data.feedback_analysis);
+      setShowFeedbackForm(false);
+      setFeedbackText('');
+      alert('Feedback analyzed successfully!');
+    } catch (error) {
+      console.error('Error submitting feedback:', error);
+      alert('Failed to analyze feedback');
     } finally {
-      setNotesSaving(false);
+      setAnalyzing(false);
+    }
+  };
+
+  const loadAllAIFeatures = async (ticketId) => {
+    if (!ticketId) return;
+    setLoadingFeatures(true);
+    try {
+      await Promise.all([
+        fetchReplyOptions(ticketId),
+        evaluateResponse(ticketId),
+        fetchKnowledgeBase(ticketId),
+        fetchChurnRisk(ticketId),
+        fetchFollowupInfo(ticketId),
+        fetchLanguage(ticketId),
+        fetchResolutionTime(ticketId),
+      ]);
+    } catch (error) {
+      console.error('Error loading AI features:', error);
+    } finally {
+      setLoadingFeatures(false);
     }
   };
 
@@ -293,6 +351,9 @@ export default function Tickets() {
     if (type === 'escalate') {
       return value ? 'badge-red' : 'badge-green';
     }
+    if (type === 'language') {
+      return 'badge-blue';
+    }
     return 'badge-gray';
   };
 
@@ -314,7 +375,6 @@ export default function Tickets() {
 
   return (
     <div>
-      {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Support Tickets</h1>
@@ -328,7 +388,6 @@ export default function Tickets() {
         </button>
       </div>
 
-      {/* Filters */}
       <div className="card mb-8">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           <div>
@@ -437,7 +496,6 @@ export default function Tickets() {
         )}
       </div>
 
-      {/* Tickets Table */}
       {loading ? (
         <div className="flex items-center justify-center h-64">
           <div className="text-gray-500">Loading tickets...</div>
@@ -472,10 +530,16 @@ export default function Tickets() {
                     setCustomerHistory([]);
                     setShowHistory(false);
                     setReplyMessage(ticket.response || '');
-                    setCustomerContext(null);
-                    setChatResponse('');
-                    setAiDraft('');
-                    setAgentNotes(ticket.agent_notes || '');
+                    setReplyOptions([]);
+                    setQualityScore(null);
+                    setKbArticles([]);
+                    setChurnRisk(null);
+                    setFollowupInfo(null);
+                    setTicketLanguage(null);
+                    setResolutionTime(null);
+                    setFeedbackAnalysis(null);
+                    setShowFeedbackForm(false);
+                    setFeedbackText('');
                   }}
                 >
                   <td className="px-4 py-3 text-sm font-medium text-gray-900">#{ticket.id}</td>
@@ -551,7 +615,6 @@ export default function Tickets() {
         </div>
       )}
 
-      {/* Pagination */}
       {totalTickets > limit && (
         <div className="flex items-center justify-between mt-4">
           <p className="text-sm text-gray-600">
@@ -576,7 +639,6 @@ export default function Tickets() {
         </div>
       )}
 
-      {/* New Ticket Modal */}
       {showNewTicket && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
           <div className="bg-white rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
@@ -660,7 +722,6 @@ export default function Tickets() {
         </div>
       )}
 
-      {/* Ticket Detail Modal */}
       {showDetail && selectedTicket && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
           <div className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto">
@@ -678,11 +739,6 @@ export default function Tickets() {
                       ({getTimeAgo(selectedTicket.created_at)})
                     </span>
                   </div>
-                  <div className="mt-1">
-                    <span className="text-xs text-gray-500">
-                      Assigned to: {selectedTicket.assigned_to || 'Unassigned'}
-                    </span>
-                  </div>
                 </div>
                 <button
                   className="text-gray-400 hover:text-gray-600 text-2xl"
@@ -693,6 +749,7 @@ export default function Tickets() {
               </div>
               
               <div className="space-y-4">
+                {/* Message */}
                 <div>
                   <p className="text-sm text-gray-500">Message</p>
                   <p className="text-gray-700 bg-gray-50 p-3 rounded-lg">
@@ -700,7 +757,8 @@ export default function Tickets() {
                   </p>
                 </div>
                 
-                <div className="grid grid-cols-2 gap-4">
+                {/* AI Analysis Grid */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div>
                     <p className="text-sm text-gray-500">Intent</p>
                     <span className={`badge ${getBadgeColor('intent', selectedTicket.intent)}`}>
@@ -727,6 +785,167 @@ export default function Tickets() {
                   </div>
                 </div>
 
+                {/* Language Detection */}
+                {ticketLanguage && (
+                  <div>
+                    <p className="text-sm text-gray-500">🌐 Language</p>
+                    <span className="badge badge-blue">
+                      {ticketLanguage.language} ({ticketLanguage.confidence}% confidence)
+                    </span>
+                  </div>
+                )}
+
+                {/* Resolution Time Prediction */}
+                {resolutionTime && (
+                  <div>
+                    <p className="text-sm text-gray-500">⏱️ Estimated Resolution Time</p>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="badge badge-blue">
+                        {resolutionTime.estimated_hours} hours
+                      </span>
+                      <span className="text-xs text-gray-500">
+                        ({resolutionTime.minimum_hours} - {resolutionTime.maximum_hours} hours)
+                      </span>
+                      <span className="text-xs text-gray-500">
+                        Confidence: {resolutionTime.confidence}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">{resolutionTime.reasoning}</p>
+                  </div>
+                )}
+
+                {/* Churn Risk */}
+                {churnRisk && (
+                  <div>
+                    <p className="text-sm text-gray-500">📉 Churn Risk</p>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className={`badge ${
+                        churnRisk.risk_level === 'critical' ? 'badge-red' :
+                        churnRisk.risk_level === 'high' ? 'badge-orange' :
+                        churnRisk.risk_level === 'medium' ? 'badge-yellow' :
+                        'badge-green'
+                      }`}>
+                        {churnRisk.risk_level.toUpperCase()} ({churnRisk.churn_risk}%)
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">{churnRisk.recommendation}</p>
+                    {churnRisk.factors && churnRisk.factors.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {churnRisk.factors.map((factor, idx) => (
+                          <span key={idx} className="badge badge-gray text-xs">{factor}</span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Follow-up Detection */}
+                {followupInfo && (
+                  <div>
+                    <p className="text-sm text-gray-500">🔔 Follow-up Required</p>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className={`badge ${followupInfo.needs_followup ? 'badge-yellow' : 'badge-green'}`}>
+                        {followupInfo.needs_followup ? 'Yes' : 'No'}
+                      </span>
+                      {followupInfo.needs_followup && (
+                        <>
+                          <span className="text-xs text-gray-500">
+                            Timeline: {followupInfo.suggested_timeline}
+                          </span>
+                        </>
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">{followupInfo.reasoning}</p>
+                    {followupInfo.needs_followup && followupInfo.followup_question && (
+                      <p className="text-xs text-blue-600 mt-1">
+                        Suggested follow-up: "{followupInfo.followup_question}"
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Quality Score */}
+                {qualityScore && (
+                  <div>
+                    <p className="text-sm text-gray-500">📊 AI Response Quality</p>
+                    <div className="flex items-center gap-4 flex-wrap">
+                      <span className="text-lg font-bold text-primary-600">
+                        {qualityScore.overall_score}/10
+                      </span>
+                      <div className="flex flex-wrap gap-2">
+                        <span className="badge badge-green">Clarity: {qualityScore.clarity}/10</span>
+                        <span className="badge badge-blue">Empathy: {qualityScore.empathy}/10</span>
+                        <span className="badge badge-purple">Completeness: {qualityScore.completeness}/10</span>
+                      </div>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">{qualityScore.recommendation}</p>
+                    {qualityScore.strengths && qualityScore.strengths.length > 0 && (
+                      <div className="mt-1">
+                        <span className="text-xs text-green-600">Strengths: {qualityScore.strengths.join(', ')}</span>
+                      </div>
+                    )}
+                    {qualityScore.improvements && qualityScore.improvements.length > 0 && (
+                      <div className="mt-1">
+                        <span className="text-xs text-orange-600">Improvements: {qualityScore.improvements.join(', ')}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* AI Response */}
+                <div>
+                  <p className="text-sm text-gray-500">AI Response</p>
+                  <div className="bg-blue-50 p-3 rounded-lg">
+                    <p className="text-gray-700">{selectedTicket.response || 'No response generated'}</p>
+                  </div>
+                </div>
+
+                {/* Reply Options (Smart Reply Optimization) */}
+                {replyOptions.length > 0 && (
+                  <div className="pt-2">
+                    <p className="text-sm font-medium text-gray-700 mb-2">💬 Reply Options (Click to use)</p>
+                    <div className="space-y-2">
+                      {replyOptions.map((option, index) => (
+                        <div
+                          key={index}
+                          className="p-3 bg-gray-50 rounded-lg border border-gray-200 hover:border-primary-300 cursor-pointer transition-colors"
+                          onClick={() => {
+                            setReplyMessage(option.reply);
+                          }}
+                        >
+                          <div className="flex items-center justify-between flex-wrap">
+                            <span className={`badge ${
+                              option.tone === 'empathetic' ? 'badge-green' :
+                              option.tone === 'direct_professional' ? 'badge-blue' :
+                              'badge-purple'
+                            }`}>
+                              {option.tone}
+                            </span>
+                            <span className="text-xs text-gray-500">{option.reasoning}</span>
+                          </div>
+                          <p className="text-sm text-gray-700 mt-1">{option.reply}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Knowledge Base Articles */}
+                {kbArticles.length > 0 && (
+                  <div>
+                    <p className="text-sm font-medium text-gray-700 mb-2">📚 Knowledge Base Articles</p>
+                    <div className="space-y-1">
+                      {kbArticles.map((article, index) => (
+                        <div key={index} className="p-2 bg-gray-50 rounded-lg text-sm">
+                          <span className="font-medium">{article.title}</span>
+                          <p className="text-gray-600 text-xs">{article.content?.substring(0, 100)}...</p>
+                          <span className="badge badge-gray text-xs">{article.category}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* Assign in Modal */}
                 <div>
                   <p className="text-sm text-gray-500 mb-1">Assign to Agent</p>
@@ -745,26 +964,22 @@ export default function Tickets() {
                     ))}
                   </select>
                 </div>
-                
-                <div>
-                  <p className="text-sm text-gray-500">AI Response</p>
-                  <div className="bg-blue-50 p-3 rounded-lg">
-                    <p className="text-gray-700">{selectedTicket.response || 'No response generated'}</p>
-                  </div>
-                </div>
-                
-                <div>
-                  <p className="text-sm text-gray-500">Reasoning</p>
-                  <p className="text-gray-600 text-sm">{selectedTicket.reasoning || 'No reasoning provided'}</p>
-                </div>
 
+                {/* Customer Context */}
                 {selectedTicket.customer_email && (
-                  <div className="pt-2">
+                  <div className="pt-2 flex flex-wrap gap-2">
                     <button
                       className="btn btn-secondary btn-sm"
                       onClick={() => fetchCustomerHistory(selectedTicket.customer_email)}
                     >
                       View Customer History
+                    </button>
+                    <button
+                      className="btn btn-primary btn-sm"
+                      onClick={() => loadAllAIFeatures(selectedTicket.id)}
+                      disabled={loadingFeatures}
+                    >
+                      {loadingFeatures ? 'Loading AI Features...' : '🔍 Analyze with AI'}
                     </button>
                   </div>
                 )}
@@ -790,144 +1005,6 @@ export default function Tickets() {
                     </div>
                   </div>
                 )}
-
-                {/* ============ TICKET-CENTRIC AI FEATURES ============ */}
-
-                {/* Customer Context Section */}
-                <div className="pt-4 border-t border-gray-200">
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-sm font-medium text-gray-700">👤 Customer Context</h3>
-                    <button
-                      className="btn btn-secondary btn-sm"
-                      onClick={() => {
-                        if (selectedTicket?.id) {
-                          fetchCustomerContext(selectedTicket.id);
-                        }
-                      }}
-                    >
-                      Load Context
-                    </button>
-                  </div>
-
-                  {customerContext && (
-                    <div className="space-y-3">
-                      {/* Order History */}
-                      {customerContext.customer?.orders && customerContext.customer.orders.length > 0 && (
-                        <div>
-                          <p className="text-xs font-medium text-gray-500">Order History</p>
-                          <div className="space-y-1 mt-1">
-                            {customerContext.customer.orders.slice(0, 3).map((order, idx) => (
-                              <div key={idx} className="text-sm text-gray-600 bg-gray-50 p-2 rounded">
-                                {order.product_name} - {order.status}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      
-                      {/* Ticket History */}
-                      {customerContext.customer?.tickets && customerContext.customer.tickets.length > 1 && (
-                        <div>
-                          <p className="text-xs font-medium text-gray-500">Previous Tickets</p>
-                          <div className="space-y-1 mt-1">
-                            {customerContext.customer.tickets.filter(t => t.id !== selectedTicket.id).slice(0, 3).map((t) => (
-                              <div key={t.id} className="text-sm text-gray-600 bg-gray-50 p-2 rounded flex justify-between">
-                                <span>#{t.id} - {t.summary || t.message?.substring(0, 30)}</span>
-                                <span className={`badge ${getBadgeColor('status', t.status)}`}>{t.status}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      
-                      {/* Customer Summary */}
-                      {customerContext.customer?.summary && (
-                        <div className="text-xs text-gray-500">
-                          <span>Total: {customerContext.customer.summary.total_tickets} | </span>
-                          <span>Resolved: {customerContext.customer.summary.resolved_tickets} | </span>
-                          <span>Open: {customerContext.customer.summary.open_tickets}</span>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* AI Chat Assistant */}
-                <div className="pt-4 border-t border-gray-200">
-                  <h3 className="text-sm font-medium text-gray-700 mb-2">💬 AI Assistant</h3>
-                  <div className="space-y-2">
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        className="input flex-1"
-                        placeholder="Ask about this customer (e.g., 'What did they buy?', 'Draft a reply')"
-                        value={chatQuestion}
-                        onChange={(e) => setChatQuestion(e.target.value)}
-                        onKeyPress={(e) => e.key === 'Enter' && handleChatQuestion(selectedTicket?.id)}
-                      />
-                      <button
-                        className="btn btn-primary btn-sm whitespace-nowrap"
-                        onClick={() => handleChatQuestion(selectedTicket?.id)}
-                        disabled={!chatQuestion.trim() || chatLoading}
-                      >
-                        {chatLoading ? 'Thinking...' : 'Ask AI'}
-                      </button>
-                    </div>
-                    
-                    {chatResponse && (
-                      <div className="p-3 bg-blue-50 rounded-lg border border-blue-200 mt-2">
-                        <p className="text-sm text-gray-700 whitespace-pre-wrap">{chatResponse}</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* AI Draft Section */}
-                <div className="pt-4 border-t border-gray-200">
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-sm font-medium text-gray-700">✍️ AI Draft Reply</h3>
-                    <button
-                      className="btn btn-primary btn-sm"
-                      onClick={() => generateAIDraft(selectedTicket?.id)}
-                      disabled={draftLoading}
-                    >
-                      {draftLoading ? 'Generating...' : 'Generate Draft'}
-                    </button>
-                  </div>
-                  
-                  {aiDraft && (
-                    <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
-                      <p className="text-sm text-gray-700 whitespace-pre-wrap">{aiDraft}</p>
-                      <button
-                        className="btn btn-secondary btn-sm mt-2"
-                        onClick={() => {
-                          setReplyMessage(aiDraft);
-                          setAiDraft('');
-                        }}
-                      >
-                        Use This Draft
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                {/* Agent Notes */}
-                <div className="pt-4 border-t border-gray-200">
-                  <h3 className="text-sm font-medium text-gray-700 mb-2">📝 Internal Notes</h3>
-                  <textarea
-                    className="input min-h-[60px]"
-                    placeholder="Add internal notes for other agents..."
-                    value={agentNotes}
-                    onChange={(e) => setAgentNotes(e.target.value)}
-                  />
-                  <button
-                    className="btn btn-secondary btn-sm mt-2"
-                    onClick={() => saveAgentNotes(selectedTicket?.id)}
-                    disabled={!agentNotes.trim() || notesSaving}
-                  >
-                    {notesSaving ? 'Saving...' : 'Save Notes'}
-                  </button>
-                </div>
 
                 {/* Reply Section */}
                 <div className="pt-4 border-t border-gray-200">
@@ -959,7 +1036,7 @@ export default function Tickets() {
                 <div className="pt-4 border-t border-gray-200">
                   <label className="block text-sm font-medium text-gray-700 mb-2">Update Status</label>
                   <div className="flex flex-wrap gap-2">
-                    {getStatusOptions().map((status) => (
+                    {['new', 'in_progress', 'resolved', 'closed'].map((status) => (
                       <button
                         key={status}
                         className={`btn btn-sm ${selectedTicket.status === status ? 'btn-primary' : 'btn-secondary'}`}
@@ -973,6 +1050,83 @@ export default function Tickets() {
                     ))}
                   </div>
                 </div>
+
+                {/* Feedback Section */}
+                {selectedTicket.status === 'resolved' && !feedbackAnalysis && (
+                  <div className="pt-4 border-t border-gray-200">
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => setShowFeedbackForm(!showFeedbackForm)}
+                    >
+                      📝 Add Customer Feedback
+                    </button>
+                    
+                    {showFeedbackForm && (
+                      <div className="mt-2">
+                        <textarea
+                          className="input min-h-[60px]"
+                          placeholder="Enter customer feedback..."
+                          value={feedbackText}
+                          onChange={(e) => setFeedbackText(e.target.value)}
+                        />
+                        <button
+                          className="btn btn-primary btn-sm mt-2"
+                          onClick={() => submitFeedback(selectedTicket.id)}
+                          disabled={analyzing || !feedbackText.trim()}
+                        >
+                          {analyzing ? 'Analyzing...' : 'Analyze Feedback'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Feedback Analysis Results */}
+                {feedbackAnalysis && (
+                  <div className="pt-4 border-t border-gray-200">
+                    <p className="text-sm font-medium text-gray-700 mb-2">📝 Feedback Analysis</p>
+                    <div className="p-3 bg-gray-50 rounded-lg space-y-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-medium">Sentiment:</span>
+                        <span className={`badge ${feedbackAnalysis.sentiment === 'positive' ? 'badge-green' : feedbackAnalysis.sentiment === 'negative' ? 'badge-red' : 'badge-yellow'}`}>
+                          {feedbackAnalysis.sentiment}
+                        </span>
+                        <span className="text-sm font-medium ml-4">Satisfaction:</span>
+                        <span className="badge badge-blue">{feedbackAnalysis.satisfaction_score}/10</span>
+                      </div>
+                      {feedbackAnalysis.key_themes && feedbackAnalysis.key_themes.length > 0 && (
+                        <div>
+                          <p className="text-sm font-medium">Key Themes:</p>
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {feedbackAnalysis.key_themes.map((theme, idx) => (
+                              <span key={idx} className="badge badge-gray">{theme}</span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {feedbackAnalysis.suggestions && feedbackAnalysis.suggestions.length > 0 && (
+                        <div>
+                          <p className="text-sm font-medium">Suggestions:</p>
+                          <ul className="text-sm text-gray-600 list-disc pl-4">
+                            {feedbackAnalysis.suggestions.map((suggestion, idx) => (
+                              <li key={idx}>{suggestion}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {feedbackAnalysis.action_items && feedbackAnalysis.action_items.length > 0 && (
+                        <div>
+                          <p className="text-sm font-medium">Action Items:</p>
+                          <ul className="text-sm text-gray-600 list-disc pl-4">
+                            {feedbackAnalysis.action_items.map((item, idx) => (
+                              <li key={idx}>{item}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>

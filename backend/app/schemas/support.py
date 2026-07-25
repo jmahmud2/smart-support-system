@@ -39,6 +39,16 @@ class SupportTicket(SupportTicketBase):
     order_history: Optional[str] = None
     agent_notes: Optional[str] = None
     ai_draft: Optional[str] = None
+    
+    # New AI Features
+    reply_options: Optional[List[dict]] = None
+    quality_score: Optional[dict] = None
+    kb_articles: Optional[List[dict]] = None
+    churn_risk: Optional[dict] = None
+    needs_followup: Optional[dict] = None
+    language: Optional[dict] = None
+    resolution_time: Optional[dict] = None
+    feedback_analysis: Optional[dict] = None
 
     class Config:
         from_attributes = True
@@ -47,8 +57,7 @@ class SupportTicket(SupportTicketBase):
 class SupportAnalysisRequest(BaseModel):
     message: str
     product_id: Optional[int] = None
-    ticket_id: Optional[int] = None  # For context-aware analysis
-    question: Optional[str] = None   # For AI chat
+    ticket_id: Optional[int] = None
 
 
 class SupportAnalysisResponse(BaseModel):
@@ -66,6 +75,16 @@ class SupportAnalysisResponse(BaseModel):
     assigned_agent: Optional[str] = ""
     ticket_summary: Optional[str] = ""
     similar_tickets: Optional[List[dict]] = []
+    
+    # New AI Features
+    reply_options: Optional[List[dict]] = []
+    quality_score: Optional[dict] = None
+    kb_articles: Optional[List[dict]] = []
+    churn_risk: Optional[dict] = None
+    needs_followup: Optional[dict] = None
+    language: Optional[dict] = None
+    resolution_time: Optional[dict] = None
+    feedback_analysis: Optional[dict] = None
 
 
 class AgentChatRequest(BaseModel):

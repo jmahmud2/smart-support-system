@@ -25,3 +25,11 @@ class SupportState(TypedDict):
     assigned_agent: Optional[str]
     ticket_summary: Optional[str]
     similar_tickets: Optional[List[dict]]
+    reply_options: Optional[List[dict]]  # Smart Reply Optimization
+    quality_score: Optional[dict]        # Quality Score
+    kb_articles: Optional[List[dict]]    # Knowledge Base RAG
+    churn_risk: Optional[dict]           # Churn Prediction
+    needs_followup: Optional[dict]       # Auto-Follow-up
+    language: Optional[dict]             # Multi-Language Detection
+    resolution_time: Optional[dict]      # Resolution Time Prediction
+    feedback_analysis: Optional[dict]    # Feedback Analysis
