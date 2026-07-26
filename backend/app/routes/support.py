@@ -8,17 +8,18 @@ from sqlalchemy.orm import Session
 from typing import Optional
 from datetime import datetime, timezone
 from pydantic import BaseModel
+
 from ..database.database import get_db
 from ..database.models import Product, SupportTicket as SupportTicketModel
 from ..controllers.support_controller import SupportController
-from ..services.ai_features import AIFeaturesService
 from ..schemas.support import (
     SupportTicketCreate,
     SupportTicket,
     SupportAnalysisRequest,
     SupportAnalysisResponse
 )
-
+from ..services.email import send_reply_email, send_ticket_created_email
+from .auth import get_current_user
 
 router = APIRouter()
 
@@ -28,14 +29,12 @@ class ReplyRequest(BaseModel):
 
 
 @router.get("/agent/me")
-async def get_current_agent():
+async def get_current_agent(current_user: dict = Depends(get_current_user)):
     """Get the current agent's information."""
-    # In production, this would come from JWT/session
-    # For now, we'll return a default agent
     return {
-        "name": "Sarah Johnson",
-        "role": "agent",
-        "email": "sarah.johnson@company.com"
+        "name": current_user.get("name", "Sarah Johnson"),
+        "role": current_user.get("role", "agent"),
+        "email": current_user.get("email", "sarah.johnson@company.com")
     }
 
 
@@ -74,7 +73,7 @@ async def analyze_message(
         )
 
     except Exception as e:
-        print(f"❌ Error in analyze: {e}")
+        print(f"Error in analyze: {e}")
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
@@ -87,7 +86,7 @@ async def create_ticket(
 ):
     """Create a support ticket and run it through AI analysis."""
     try:
-        print(f"🔵 Received ticket creation request")
+        print(f"Received ticket creation request")
         print(f"   Name: {ticket_data.customer_name}")
         print(f"   Email: {ticket_data.customer_email}")
         print(f"   Message: {ticket_data.customer_message[:50]}...")
@@ -98,11 +97,15 @@ async def create_ticket(
                 raise HTTPException(status_code=404, detail="Product not found")
 
         ticket = SupportController.create_ticket(db, ticket_data)
-        print(f"✅ Ticket created: #{ticket.id}")
+        print(f"Ticket created: #{ticket.id}")
+        
+        if ticket.customer_email:
+            send_ticket_created_email(ticket.customer_email, ticket.customer_name, ticket.id)
+        
         return ticket
 
     except Exception as e:
-        print(f"❌ Route error: {e}")
+        print(f"Route error: {e}")
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
@@ -206,6 +209,9 @@ async def send_reply(
     db.commit()
     db.refresh(ticket)
 
+    if ticket.customer_email:
+        send_reply_email(ticket.customer_email, ticket.customer_name, reply_data.message, ticket_id)
+
     return {
         "success": True,
         "ticket_id": ticket.id,
@@ -261,8 +267,6 @@ async def get_unassigned_tickets(
     tickets = SupportController.get_unassigned_tickets(db, limit, offset)
     return tickets
 
-
-# ============ TICKET-CENTRIC AI ROUTES ============
 
 @router.get("/tickets/{ticket_id}/context")
 async def get_ticket_context(
@@ -373,7 +377,6 @@ async def get_ai_draft(
         raise HTTPException(status_code=404, detail="Ticket not found")
     return {"draft": ticket.ai_draft, "ticket_id": ticket.id}
 
-# ============ NEW AI FEATURE ENDPOINTS ============
 
 @router.post("/tickets/{ticket_id}/reply-options")
 async def get_reply_options(
@@ -381,6 +384,7 @@ async def get_reply_options(
     db: Session = Depends(get_db)
 ):
     """Generate 3 reply options for a ticket."""
+    from ..services.ai_features import AIFeaturesService
     ticket = db.query(SupportTicketModel).filter(SupportTicketModel.id == ticket_id).first()
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
@@ -399,6 +403,7 @@ async def evaluate_response(
     db: Session = Depends(get_db)
 ):
     """Evaluate the quality of the AI response."""
+    from ..services.ai_features import AIFeaturesService
     ticket = db.query(SupportTicketModel).filter(SupportTicketModel.id == ticket_id).first()
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
@@ -418,6 +423,7 @@ async def get_kb_articles(
     db: Session = Depends(get_db)
 ):
     """Get relevant knowledge base articles for a ticket."""
+    from ..services.ai_features import AIFeaturesService
     ticket = db.query(SupportTicketModel).filter(SupportTicketModel.id == ticket_id).first()
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
@@ -435,11 +441,12 @@ async def get_churn_risk(
     db: Session = Depends(get_db)
 ):
     """Predict customer churn risk."""
+    from ..services.ai_features import AIFeaturesService
+    from ..services.customer_context import CustomerContextService
     ticket = db.query(SupportTicketModel).filter(SupportTicketModel.id == ticket_id).first()
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
     
-    from ..services.customer_context import CustomerContextService
     context = CustomerContextService.get_customer_info(db, ticket.customer_email) if ticket.customer_email else {}
     
     risk = AIFeaturesService.predict_churn_risk(context, ticket.customer_message)
@@ -452,11 +459,12 @@ async def check_followup(
     db: Session = Depends(get_db)
 ):
     """Check if a follow-up is needed."""
+    from ..services.ai_features import AIFeaturesService
+    from ..services.customer_context import CustomerContextService
     ticket = db.query(SupportTicketModel).filter(SupportTicketModel.id == ticket_id).first()
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
     
-    from ..services.customer_context import CustomerContextService
     context = CustomerContextService.get_customer_info(db, ticket.customer_email) if ticket.customer_email else {}
     
     followup = AIFeaturesService.detect_followup_needed(
@@ -474,6 +482,7 @@ async def detect_message_language(
     db: Session = Depends(get_db)
 ):
     """Detect the language of the ticket message."""
+    from ..services.ai_features import AIFeaturesService
     ticket = db.query(SupportTicketModel).filter(SupportTicketModel.id == ticket_id).first()
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
@@ -488,6 +497,7 @@ async def predict_resolution(
     db: Session = Depends(get_db)
 ):
     """Predict resolution time for a ticket."""
+    from ..services.ai_features import AIFeaturesService
     ticket = db.query(SupportTicketModel).filter(SupportTicketModel.id == ticket_id).first()
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
@@ -508,6 +518,7 @@ async def analyze_feedback(
     db: Session = Depends(get_db)
 ):
     """Analyze customer feedback after resolution."""
+    from ..services.ai_features import AIFeaturesService
     ticket = db.query(SupportTicketModel).filter(SupportTicketModel.id == ticket_id).first()
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")

@@ -206,7 +206,7 @@ export default function Dashboard() {
 
       {sentimentTrends && (
         <div className="card mb-8">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">📈 Sentiment Distribution</h2>
+          <h2 className="text-lg font-semibold text-gray-900 mb-4"> Sentiment Distribution</h2>
           <div className="grid grid-cols-3 gap-4">
             <div className="text-center p-4 bg-green-50 rounded-lg">
               <p className="text-sm font-medium text-gray-600">Positive</p>
@@ -233,7 +233,10 @@ export default function Dashboard() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <div className="card">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">🤖 AI Support Assistant</h2>
+          <div className="mb-2">
+  <h2 className="text-lg font-semibold text-gray-900"> AI Demo Tool</h2>
+  <p className="text-xs text-gray-500">Test the AI analysis before creating tickets. Analysis is automatically applied when tickets are created.</p>
+</div>
           
           <div className="space-y-4">
             <textarea
@@ -248,7 +251,7 @@ export default function Dashboard() {
                 className="btn btn-secondary btn-sm"
                 onClick={loadExample}
               >
-                📋 Load Example
+                 Load Example
               </button>
               <button
                 className="btn btn-primary flex-1"
@@ -303,7 +306,7 @@ export default function Dashboard() {
                 {analysisResult.ticket_summary && (
                   <div className="p-2 bg-purple-50 rounded border border-purple-200">
                     <p className="text-sm text-purple-700">
-                      <span className="font-medium">📝 Summary:</span> {analysisResult.ticket_summary}
+                      <span className="font-medium"> Summary:</span> {analysisResult.ticket_summary}
                     </p>
                   </div>
                 )}
@@ -337,13 +340,13 @@ export default function Dashboard() {
                     onClick={handleSaveTicket}
                     disabled={saving}
                   >
-                    {saving ? 'Saving...' : '💾 Save as Ticket'}
+                    {saving ? 'Saving...' : 'Create Ticket from Analysis'}
                   </button>
                 </div>
                 
                 {saveSuccess && (
                   <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                    <p className="text-green-700 text-sm font-medium">✅ Ticket saved successfully!</p>
+                    <p className="text-green-700 text-sm font-medium"> Ticket saved successfully!</p>
                   </div>
                 )}
               </div>
@@ -353,7 +356,7 @@ export default function Dashboard() {
 
         <div className="card">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">🎫 Recent Tickets</h2>
+            <h2 className="text-lg font-semibold text-gray-900"> Recent Tickets</h2>
             <button 
               onClick={fetchDashboardData}
               className="text-sm text-primary-600 hover:text-primary-700"
@@ -404,7 +407,7 @@ export default function Dashboard() {
 
       <div className="card mt-8">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-gray-900">📊 AI Ticket Summary</h2>
+          <h2 className="text-lg font-semibold text-gray-900"> AI Ticket Summary</h2>
           <button
             className="btn btn-primary btn-sm"
             onClick={fetchAiSummary}
@@ -416,8 +419,8 @@ export default function Dashboard() {
         {showSummary && aiSummary ? (
           <div className="space-y-4">
             <div className="flex items-center gap-4 text-sm text-gray-600">
-              <span>📅 {aiSummary.period}</span>
-              <span>📋 {aiSummary.total_tickets} tickets analyzed</span>
+              <span> {aiSummary.period}</span>
+              <span> {aiSummary.total_tickets} tickets analyzed</span>
             </div>
             <div className="p-4 bg-gray-50 rounded-lg whitespace-pre-wrap">
               <p className="text-gray-700">{aiSummary.summary}</p>
@@ -432,7 +435,7 @@ export default function Dashboard() {
 
       {stats?.intent_breakdown && (
         <div className="card mt-8">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">📊 Intent Distribution</h2>
+          <h2 className="text-lg font-semibold text-gray-900 mb-4"> Intent Distribution</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
             {Object.entries(stats.intent_breakdown).map(([intent, count]) => (
               <div key={intent} className="text-center p-3 bg-gray-50 rounded-lg">

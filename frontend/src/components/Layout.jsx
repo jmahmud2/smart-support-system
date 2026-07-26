@@ -3,10 +3,9 @@ import { Link, useLocation } from 'react-router-dom';
 
 const navigation = [
   { name: 'Dashboard', href: '/' },
+  { name: 'Agent Dashboard', href: '/agent' },
   { name: 'Products', href: '/products' },
   { name: 'Tickets', href: '/tickets' },
-  { name: 'Agent Dashboard', href: '/agent' },
-  { name: 'Submit Ticket', href: '/submit' },
 ];
 
 export default function Layout({ children }) {
@@ -17,7 +16,6 @@ export default function Layout({ children }) {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* Mobile menu overlay */}
       {mobileMenuOpen && (
         <div 
           className="fixed inset-0 z-40 bg-black/50 lg:hidden"
@@ -25,11 +23,9 @@ export default function Layout({ children }) {
         />
       )}
 
-      {/* Header/Navbar */}
       <nav className="bg-white shadow-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
-            {/* Logo */}
             <div className="flex items-center">
               <Link to="/" className="flex items-center gap-2">
                 <span className="text-2xl font-bold text-primary-600 hidden sm:block">
@@ -41,7 +37,6 @@ export default function Layout({ children }) {
               </Link>
             </div>
 
-            {/* Desktop Navigation */}
             <div className="hidden lg:flex lg:items-center lg:gap-1">
               {navigation.map((item) => (
                 <Link
@@ -58,7 +53,6 @@ export default function Layout({ children }) {
               ))}
             </div>
 
-            {/* Mobile menu button */}
             <div className="flex items-center lg:hidden">
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -71,7 +65,6 @@ export default function Layout({ children }) {
           </div>
         </div>
 
-        {/* Mobile Navigation */}
         <div
           className={`lg:hidden fixed top-16 left-0 right-0 bg-white shadow-lg z-50 transition-transform duration-300 ${
             mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
@@ -96,12 +89,10 @@ export default function Layout({ children }) {
         </div>
       </nav>
 
-      {/* Main Content */}
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         {children}
       </main>
 
-      {/* Footer */}
       <footer className="bg-white border-t">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <p className="text-center text-sm text-gray-500">
