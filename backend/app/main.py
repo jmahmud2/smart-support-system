@@ -1,8 +1,10 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from .routes import products, categories, stats, support, auth
 from .database.database import init_db
 from .utils.logger import get_logger, log_request, log_response
+from .utils.error_handler import handle_exception
 import os
 import time
 from dotenv import load_dotenv
@@ -20,14 +22,24 @@ app = FastAPI(
     version="1.0.0"
 )
 
+# Error handler middleware
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    return handle_exception(exc, request)
+
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     start_time = time.time()
     log_request(logger, request.method, request.url.path)
-    response = await call_next(request)
-    duration = time.time() - start_time
-    log_response(logger, response.status_code, duration)
-    return response
+    try:
+        response = await call_next(request)
+        duration = time.time() - start_time
+        log_response(logger, response.status_code, duration)
+        return response
+    except Exception as e:
+        duration = time.time() - start_time
+        log_response(logger, 500, duration)
+        raise
 
 app.add_middleware(
     CORSMiddleware,

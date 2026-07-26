@@ -1,5 +1,5 @@
 """
-Seed users into the database.
+Seed users into the database with bcrypt hashed passwords.
 Run: python scripts/seed_users.py
 """
 
@@ -9,11 +9,12 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.database.database import SessionLocal
 from app.database.models import User
-import hashlib
+import bcrypt
 
 def hash_password(password: str) -> str:
-    """Simple password hashing (in production, use bcrypt)"""
-    return hashlib.sha256(password.encode()).hexdigest()
+    """Hash a password using bcrypt."""
+    salt = bcrypt.gensalt()
+    return bcrypt.hashpw(password.encode('utf-8'), salt).decode('utf-8')
 
 def seed_users():
     db = SessionLocal()
@@ -50,7 +51,7 @@ def seed_users():
             print(f"Added user: {user_data['email']} ({user_data['role']})")
         
         db.commit()
-        print("Users seeded successfully!")
+        print("Users seeded successfully with bcrypt hashing!")
         
     except Exception as e:
         print(f"Error seeding users: {e}")

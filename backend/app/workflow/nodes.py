@@ -66,18 +66,39 @@ def assign_priority_ai(state: SupportState) -> dict:
     message = state.get("customer_message", "")
     intent = state.get("intent", "general")
     sentiment = state.get("sentiment", "neutral")
-    logger.info(f" Assigning priority: {message[:50]}...")
+    logger.info(f"⚡ Assigning priority: {message[:50]}...")
 
+    # Simplified prompt for better reliability
     prompt = f"""
     Assign a priority to this message. Return only ONE word: urgent, high, medium, or low.
 
     Message: {message}
     Intent: {intent}
     Sentiment: {sentiment}
+
+    Rules:
+    - If message contains words like "urgent", "immediately", "asap", "emergency" → urgent
+    - If sentiment is negative and intent is complaint → high
+    - If intent is shipping → medium
+    - Everything else → low
     """
 
-    priority = call_llm(prompt).strip().lower()
-    if priority not in ["urgent", "high", "medium", "low"]:
+    try:
+        response = call_llm(prompt).strip().lower()
+        if response not in ["urgent", "high", "medium", "low"]:
+            # Fallback to rule-based
+            if "urgent" in message.lower() or "immediately" in message.lower() or "asap" in message.lower():
+                priority = "urgent"
+            elif sentiment == "negative" and intent == "complaint":
+                priority = "high"
+            elif intent == "shipping":
+                priority = "medium"
+            else:
+                priority = "low"
+        else:
+            priority = response
+    except Exception as e:
+        logger.error(f"Priority parsing error: {e}")
         priority = "medium"
 
     reasonings = {

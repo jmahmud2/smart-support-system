@@ -1,6 +1,6 @@
 """
 Authentication routes for the support system.
-JWT-based authentication with database users.
+JWT-based authentication with database users using bcrypt.
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -10,7 +10,7 @@ from typing import Optional
 from sqlalchemy.orm import Session
 import jwt
 import os
-import hashlib
+import bcrypt
 from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 
@@ -29,8 +29,14 @@ security = HTTPBearer()
 
 
 def hash_password(password: str) -> str:
-    """Hash a password using SHA256."""
-    return hashlib.sha256(password.encode()).hexdigest()
+    """Hash a password using bcrypt."""
+    salt = bcrypt.gensalt()
+    return bcrypt.hashpw(password.encode('utf-8'), salt).decode('utf-8')
+
+
+def verify_password(password: str, hashed: str) -> bool:
+    """Verify a password against a hash."""
+    return bcrypt.checkpw(password.encode('utf-8'), hashed.encode('utf-8'))
 
 
 class LoginRequest(BaseModel):
@@ -99,7 +105,7 @@ async def login(
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    if user.password != hash_password(request.password):
+    if not verify_password(request.password, user.password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid credentials",

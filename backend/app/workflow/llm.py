@@ -1,6 +1,6 @@
 """
 LLM integration module for the customer support workflow.
-Handles communication with OpenRouter API.
+Handles communication with OpenRouter API with rate limit handling.
 """
 
 import os
@@ -17,17 +17,18 @@ OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 OPENROUTER_BASE_URL = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
 OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "google/gemini-2.0-flash-exp:free")
 
+# Rate limiting configuration
+RATE_LIMIT_RETRIES = 3
+RATE_LIMIT_BACKOFF = 2  # seconds
 
-def call_llm(prompt: str, retries: int = 2) -> str:
+
+def call_llm(prompt: str, retries: int = RATE_LIMIT_RETRIES) -> str:
     """
-    Send a prompt to the OpenRouter API and return the response.
+    Send a prompt to the OpenRouter API with rate limit handling.
     ALWAYS returns a string, never None.
     """
-    logger.info(f"LLM Call: {OPENROUTER_MODEL}")
-    logger.debug(f"   Prompt: {prompt[:100]}...")
-
     if not OPENROUTER_API_KEY:
-        logger.error("⚠️ OPENROUTER_API_KEY not set in .env file")
+        logger.error("OPENROUTER_API_KEY not set in .env file")
         return "Unable to process request: API key not configured."
 
     for attempt in range(retries):
@@ -52,13 +53,12 @@ def call_llm(prompt: str, retries: int = 2) -> str:
             )
 
             if response.status_code == 429:
-                logger.warning(f"Rate limited (attempt {attempt + 1}/{retries})")
+                wait_time = (attempt + 1) * RATE_LIMIT_BACKOFF
+                logger.warning(f"Rate limited (attempt {attempt + 1}/{retries}), waiting {wait_time}s")
                 if attempt < retries - 1:
-                    wait_time = (attempt + 1) * 2
-                    logger.info(f"   Waiting {wait_time} seconds...")
                     time.sleep(wait_time)
                     continue
-                return "Service is busy. Please try again in a moment."
+                return "Currently experiencing high demand. Please try again in a few moments."
 
             if response.status_code != 200:
                 logger.error(f"API Error {response.status_code}: {response.text[:200]}")
@@ -69,8 +69,12 @@ def call_llm(prompt: str, retries: int = 2) -> str:
 
             result = response.json()
             content = result["choices"][0]["message"]["content"]
+            
+            if content is None:
+                logger.warning("LLM returned None, using fallback")
+                return "Unable to process request. Please try again later."
+            
             logger.info(f"LLM response received ({len(content)} chars)")
-            logger.debug(f"   Response: {content[:100]}...")
             return content
 
         except httpx.TimeoutException:
@@ -89,3 +93,24 @@ def call_llm(prompt: str, retries: int = 2) -> str:
 
     logger.error("Maximum retry attempts exceeded")
     return "Unable to process request. Please try again later."
+
+
+def get_available_models() -> list:
+    """Get list of available free models on OpenRouter."""
+    if not OPENROUTER_API_KEY:
+        return []
+    
+    try:
+        response = httpx.get(
+            "https://openrouter.ai/api/v1/models",
+            headers={"Authorization": f"Bearer {OPENROUTER_API_KEY}"},
+            timeout=10.0
+        )
+        if response.status_code == 200:
+            models = response.json().get("data", [])
+            free_models = [m["id"] for m in models if "free" in m.get("id", "")]
+            return free_models
+    except Exception as e:
+        logger.error(f"Error fetching models: {e}")
+    
+    return []
