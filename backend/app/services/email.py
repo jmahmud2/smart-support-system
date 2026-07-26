@@ -23,7 +23,7 @@ def send_reply_email(to_email: str, customer_name: str, reply: str, ticket_id: i
     Send a reply email to a customer.
     """
     if not SMTP_USER or not SMTP_PASSWORD:
-        print(" SMTP credentials not set. Email not sent.")
+        print("SMTP credentials not set. Email not sent.")
         return False
     
     subject = f"Re: Support Ticket #{ticket_id}"
@@ -59,10 +59,10 @@ def send_reply_email(to_email: str, customer_name: str, reply: str, ticket_id: i
             server.starttls()
             server.login(SMTP_USER, SMTP_PASSWORD)
             server.send_message(msg)
-        print(f" Email sent to {to_email}")
+        print(f"Email sent to {to_email}")
         return True
     except Exception as e:
-        print(f" Email error: {e}")
+        print(f"Email error: {e}")
         return False
 
 
@@ -71,7 +71,7 @@ def send_ticket_created_email(to_email: str, customer_name: str, ticket_id: int)
     Send confirmation email when a ticket is created.
     """
     if not SMTP_USER or not SMTP_PASSWORD:
-        print(" SMTP credentials not set. Email not sent.")
+        print("SMTP credentials not set. Email not sent.")
         return False
     
     subject = f"Support Ticket #{ticket_id} Received"
@@ -105,10 +105,10 @@ def send_ticket_created_email(to_email: str, customer_name: str, ticket_id: int)
             server.starttls()
             server.login(SMTP_USER, SMTP_PASSWORD)
             server.send_message(msg)
-        print(f" Ticket confirmation email sent to {to_email}")
+        print(f"Ticket confirmation email sent to {to_email}")
         return True
     except Exception as e:
-        print(f" Email error: {e}")
+        print(f"Email error: {e}")
         return False
 
 
@@ -117,7 +117,7 @@ def send_ticket_resolved_email(to_email: str, customer_name: str, ticket_id: int
     Send notification when a ticket is resolved.
     """
     if not SMTP_USER or not SMTP_PASSWORD:
-        print(" SMTP credentials not set. Email not sent.")
+        print("SMTP credentials not set. Email not sent.")
         return False
     
     subject = f"Support Ticket #{ticket_id} Resolved"
@@ -151,8 +151,8 @@ def send_ticket_resolved_email(to_email: str, customer_name: str, ticket_id: int
             server.starttls()
             server.login(SMTP_USER, SMTP_PASSWORD)
             server.send_message(msg)
-        print(f" Resolution email sent to {to_email}")
+        print(f"Resolution email sent to {to_email}")
         return True
     except Exception as e:
-        print(f" Email error: {e}")
+        print(f"Email error: {e}")
         return False

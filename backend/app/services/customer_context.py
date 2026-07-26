@@ -4,7 +4,7 @@ Customer context service for gathering order history, ticket history, and custom
 
 from sqlalchemy.orm import Session
 from typing import Optional, List, Dict
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from ..database.models import SupportTicket, Product, CustomerOrder, CustomerTicketsSummary
 
@@ -18,10 +18,23 @@ class CustomerContextService:
         if not email:
             return {}
 
-        # Get order history
-        orders = db.query(CustomerOrder).filter(
-            CustomerOrder.customer_email == email
-        ).order_by(CustomerOrder.order_date.desc()).all()
+        # Get order history - handle missing columns gracefully
+        try:
+            orders = db.query(CustomerOrder).filter(
+                CustomerOrder.customer_email == email
+            ).order_by(CustomerOrder.order_date.desc()).all()
+            order_data = [
+                {
+                    "product_name": order.product_name if hasattr(order, 'product_name') else "Unknown Product",
+                    "product_id": order.product_id if hasattr(order, 'product_id') else None,
+                    "order_date": order.order_date.isoformat() if hasattr(order, 'order_date') and order.order_date else None,
+                    "status": getattr(order, 'status', 'completed')
+                }
+                for order in orders
+            ]
+        except Exception as e:
+            print(f"Error fetching orders: {e}")
+            order_data = []
 
         # Get ticket history
         tickets = db.query(SupportTicket).filter(
@@ -35,15 +48,7 @@ class CustomerContextService:
 
         return {
             "email": email,
-            "orders": [
-                {
-                    "product_name": order.product_name,
-                    "product_id": order.product_id,
-                    "order_date": order.order_date.isoformat() if order.order_date else None,
-                    "status": order.status
-                }
-                for order in orders
-            ],
+            "orders": order_data,
             "tickets": [
                 {
                     "id": ticket.id,
@@ -68,19 +73,22 @@ class CustomerContextService:
     @staticmethod
     def get_order_history(db: Session, email: str) -> List[dict]:
         """Get customer order history."""
-        orders = db.query(CustomerOrder).filter(
-            CustomerOrder.customer_email == email
-        ).order_by(CustomerOrder.order_date.desc()).all()
-
-        return [
-            {
-                "product_name": order.product_name,
-                "product_id": order.product_id,
-                "order_date": order.order_date.isoformat() if order.order_date else None,
-                "status": order.status
-            }
-            for order in orders
-        ]
+        try:
+            orders = db.query(CustomerOrder).filter(
+                CustomerOrder.customer_email == email
+            ).order_by(CustomerOrder.order_date.desc()).all()
+            return [
+                {
+                    "product_name": order.product_name if hasattr(order, 'product_name') else "Unknown Product",
+                    "product_id": order.product_id if hasattr(order, 'product_id') else None,
+                    "order_date": order.order_date.isoformat() if hasattr(order, 'order_date') and order.order_date else None,
+                    "status": getattr(order, 'status', 'completed')
+                }
+                for order in orders
+            ]
+        except Exception as e:
+            print(f"Error fetching order history: {e}")
+            return []
 
     @staticmethod
     def get_ticket_history(db: Session, email: str, limit: int = 10) -> List[dict]:
@@ -121,7 +129,6 @@ class CustomerContextService:
         open_count = sum(1 for t in tickets if t.status == "new")
         escalated = sum(1 for t in tickets if t.escalate)
 
-        # Calculate average sentiment (0 = neutral, 1 = positive, -1 = negative)
         sentiment_map = {"positive": 1, "neutral": 0, "negative": -1}
         sentiment_sum = sum(sentiment_map.get(t.sentiment, 0) for t in tickets if t.sentiment)
         sentiment_avg = sentiment_sum / total if total > 0 else 0
@@ -154,15 +161,14 @@ class CustomerContextService:
     @staticmethod
     def seed_sample_orders(db: Session):
         """Seed sample order data for existing customers."""
-        # Get all customers with tickets
+        from ..database.models import Product
+        import random
+
         customers = db.query(SupportTicket.customer_email).distinct().all()
-        
         products = db.query(Product).all()
         if not products:
-            print(" No products found. Please seed products first.")
+            print("No products found. Please seed products first.")
             return
-
-        import random
 
         added_count = 0
         for customer in customers:
@@ -170,14 +176,12 @@ class CustomerContextService:
             if not email:
                 continue
 
-            # Check if customer already has orders
             existing = db.query(CustomerOrder).filter(
                 CustomerOrder.customer_email == email
             ).first()
             if existing:
                 continue
 
-            # Create 1-3 random orders
             num_orders = random.randint(1, 3)
             for _ in range(num_orders):
                 product = random.choice(products)
@@ -185,11 +189,11 @@ class CustomerContextService:
                     customer_email=email,
                     product_id=product.id,
                     product_name=product.name,
-                    order_date=datetime.utcnow() - timedelta(days=random.randint(1, 90)),
+                    order_date=datetime.now(timezone.utc) - timedelta(days=random.randint(1, 90)),
                     status=random.choice(["completed", "shipped", "pending"])
                 )
                 db.add(order)
                 added_count += 1
 
         db.commit()
-        print(f" Seeded {added_count} sample orders for customers")
+        print(f"Seeded {added_count} sample orders for customers")
