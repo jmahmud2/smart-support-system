@@ -29,7 +29,9 @@ class ReplyRequest(BaseModel):
 
 
 @router.get("/agent/me")
-async def get_current_agent(current_user: dict = Depends(get_current_user)):
+async def get_current_agent(
+    current_user: dict = Depends(get_current_user)
+):
     """Get the current agent's information."""
     return {
         "name": current_user.get("name", "Sarah Johnson"),

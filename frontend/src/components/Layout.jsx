@@ -1,18 +1,45 @@
-import { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-
-const navigation = [
-  { name: 'Dashboard', href: '/' },
-  { name: 'Agent Dashboard', href: '/agent' },
-  { name: 'Products', href: '/products' },
-  { name: 'Tickets', href: '/tickets' },
-];
+import { useState, useEffect } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 
 export default function Layout({ children }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [user, setUser] = useState(null);
   const location = useLocation();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const userData = localStorage.getItem('user');
+    if (userData) {
+      setUser(JSON.parse(userData));
+    }
+  }, [location]);
+
+  const handleLogout = () => {
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('user');
+    setUser(null);
+    navigate('/login');
+  };
 
   const isActive = (path) => location.pathname === path;
+
+  // If on login page, don't show navigation
+  if (location.pathname === '/login') {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+          {children}
+        </main>
+      </div>
+    );
+  }
+
+  const navigation = [
+    { name: 'Dashboard', href: '/' },
+    { name: 'Agent Dashboard', href: '/agent' },
+    { name: 'Products', href: '/products' },
+    { name: 'Tickets', href: '/tickets' },
+  ];
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -37,7 +64,7 @@ export default function Layout({ children }) {
               </Link>
             </div>
 
-            <div className="hidden lg:flex lg:items-center lg:gap-1">
+            <div className="hidden lg:flex lg:items-center lg:gap-4">
               {navigation.map((item) => (
                 <Link
                   key={item.name}
@@ -51,9 +78,33 @@ export default function Layout({ children }) {
                   {item.name}
                 </Link>
               ))}
+              
+              {user ? (
+                <div className="flex items-center gap-4 ml-4 pl-4 border-l border-gray-200">
+                  <span className="text-sm text-gray-600">
+                    {user.name} ({user.role})
+                  </span>
+                  <button
+                    onClick={handleLogout}
+                    className="text-sm text-red-600 hover:text-red-700 font-medium"
+                  >
+                    Logout
+                  </button>
+                </div>
+              ) : (
+                <Link
+                  to="/login"
+                  className="px-4 py-2 rounded-lg text-sm font-medium text-white bg-primary-600 hover:bg-primary-700"
+                >
+                  Sign In
+                </Link>
+              )}
             </div>
 
-            <div className="flex items-center lg:hidden">
+            <div className="flex items-center lg:hidden gap-2">
+              {user && (
+                <span className="text-xs text-gray-500">{user.name}</span>
+              )}
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                 className="p-2 rounded-lg text-gray-600 hover:bg-gray-100"
@@ -85,6 +136,30 @@ export default function Layout({ children }) {
                 {item.name}
               </Link>
             ))}
+            {user ? (
+              <>
+                <div className="px-4 py-2 text-sm text-gray-500">
+                  {user.name} ({user.role})
+                </div>
+                <button
+                  onClick={() => {
+                    handleLogout();
+                    setMobileMenuOpen(false);
+                  }}
+                  className="block w-full text-left px-4 py-3 rounded-lg text-base font-medium text-red-600 hover:bg-red-50"
+                >
+                  Logout
+                </button>
+              </>
+            ) : (
+              <Link
+                to="/login"
+                onClick={() => setMobileMenuOpen(false)}
+                className="block px-4 py-3 rounded-lg text-base font-medium text-white bg-primary-600 hover:bg-primary-700"
+              >
+                Sign In
+              </Link>
+            )}
           </div>
         </div>
       </nav>

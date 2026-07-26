@@ -1,45 +1,36 @@
 """
 Authentication routes for the support system.
-Simple JWT-based authentication.
+JWT-based authentication with database users.
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from typing import Optional
+from sqlalchemy.orm import Session
 import jwt
 import os
+import hashlib
 from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 
+from ..database.database import get_db
+from ..database.models import User
+
 load_dotenv()
 
-router = APIRouter(prefix="/auth", tags=["auth"])
+router = APIRouter(tags=["auth"])
 
 SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-here")
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 24 hours
+ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24
 
 security = HTTPBearer()
 
-# Users (in production, this would be a database)
-USERS = {
-    "agent@company.com": {
-        "password": "agent123",
-        "name": "Sarah Johnson",
-        "role": "agent"
-    },
-    "manager@company.com": {
-        "password": "manager123",
-        "name": "John Manager",
-        "role": "manager"
-    },
-    "admin@company.com": {
-        "password": "admin123",
-        "name": "Admin User",
-        "role": "admin"
-    }
-}
+
+def hash_password(password: str) -> str:
+    """Hash a password using SHA256."""
+    return hashlib.sha256(password.encode()).hexdigest()
 
 
 class LoginRequest(BaseModel):
@@ -64,14 +55,22 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     return encoded_jwt
 
 
-def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
+def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db)
+):
     token = credentials.credentials
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         email = payload.get("sub")
         if email is None:
             raise HTTPException(status_code=401, detail="Invalid token")
-        return {"email": email, "role": payload.get("role"), "name": payload.get("name")}
+        
+        user = db.query(User).filter(User.email == email).first()
+        if not user:
+            raise HTTPException(status_code=401, detail="User not found")
+        
+        return {"email": user.email, "role": user.role, "name": user.name}
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expired")
     except jwt.InvalidTokenError:
@@ -87,10 +86,20 @@ def require_role(role: str):
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login(request: LoginRequest):
+async def login(
+    request: LoginRequest,
+    db: Session = Depends(get_db)
+):
     """Login and get access token."""
-    user = USERS.get(request.email)
-    if not user or user["password"] != request.password:
+    user = db.query(User).filter(User.email == request.email).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    if user.password != hash_password(request.password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid credentials",
@@ -98,13 +107,13 @@ async def login(request: LoginRequest):
         )
     
     access_token = create_access_token(
-        data={"sub": request.email, "role": user["role"], "name": user["name"]}
+        data={"sub": user.email, "role": user.role, "name": user.name}
     )
     
     return TokenResponse(
         access_token=access_token,
         token_type="bearer",
-        user={"email": request.email, "name": user["name"], "role": user["role"]}
+        user={"email": user.email, "name": user.name, "role": user.role}
     )
 
 
