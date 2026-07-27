@@ -32,33 +32,24 @@ export default function AgentDashboard() {
   const [feedbackText, setFeedbackText] = useState('');
   const [analyzing, setAnalyzing] = useState(false);
   const [loadingFeatures, setLoadingFeatures] = useState(false);
-
-  // Agent options for assignment
-  const agentOptions = [
-    'Sarah Johnson',
-    'Michael Chen',
-    'Emily Rodriguez',
-    'David Kim',
-    'Jessica Williams'
-  ];
-
-  const handleAssignTicket = async (ticketId, agentName) => {
-    try {
-      await apiClient.patch(`/support/tickets/${ticketId}/assign`, null, {
-        params: { agent_name: agentName }
-      });
-      if (agent) {
-        fetchAgentData(agent.name);
-      }
-    } catch (error) {
-      console.error('Error assigning ticket:', error);
-      alert('Failed to assign ticket');
-    }
-  };
+  
+  // Agent options (dynamic)
+  const [agentOptions, setAgentOptions] = useState([]);
 
   useEffect(() => {
+    fetchAgents();
     fetchAgentInfo();
   }, []);
+
+  const fetchAgents = async () => {
+    try {
+      const response = await apiClient.get('/support/agents');
+      setAgentOptions(response.data.map(agent => agent.name));
+    } catch (error) {
+      console.error('Error fetching agents:', error);
+      setAgentOptions([]);
+    }
+  };
 
   const fetchAgentInfo = async () => {
     try {
@@ -78,7 +69,7 @@ export default function AgentDashboard() {
       const response = await apiClient.get('/support/tickets', {
         params: { limit: 100, offset: 0 }
       });
-      const allTickets = response.data || [];
+      const allTickets = response.data.data || [];
 
       const my = allTickets.filter(t => t.assigned_to === agentName);
       setMyTickets(my);
@@ -113,6 +104,20 @@ export default function AgentDashboard() {
         params: { agent_name: agent.name }
       });
       fetchAgentData(agent.name);
+    } catch (error) {
+      console.error('Error assigning ticket:', error);
+      alert('Failed to assign ticket');
+    }
+  };
+
+  const handleAssignTicket = async (ticketId, agentName) => {
+    try {
+      await apiClient.patch(`/support/tickets/${ticketId}/assign`, null, {
+        params: { agent_name: agentName }
+      });
+      if (agent) {
+        fetchAgentData(agent.name);
+      }
     } catch (error) {
       console.error('Error assigning ticket:', error);
       alert('Failed to assign ticket');
@@ -355,7 +360,7 @@ export default function AgentDashboard() {
       <div className="mb-8">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">👋 Welcome back, {agent.name}</h1>
+            <h1 className="text-2xl font-bold text-gray-900">Welcome back, {agent.name}</h1>
             <p className="text-gray-600 mt-1">Here's what you need to work on today</p>
           </div>
           <Link to="/tickets" className="text-sm text-primary-600 hover:text-primary-700">
@@ -381,7 +386,7 @@ export default function AgentDashboard() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <div className="card">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">📋 My Tickets ({myTickets.length})</h2>
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">My Tickets ({myTickets.length})</h2>
           
           {myTickets.length === 0 ? (
             <p className="text-gray-500 text-sm">No tickets assigned to you yet.</p>
@@ -473,7 +478,7 @@ export default function AgentDashboard() {
         </div>
 
         <div className="card">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">📥 Available Queue ({unassignedTickets.length})</h2>
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Available Queue ({unassignedTickets.length})</h2>
           
           {unassignedTickets.length === 0 ? (
             <p className="text-gray-500 text-sm">No unassigned tickets in the queue.</p>
@@ -520,7 +525,7 @@ export default function AgentDashboard() {
                       handleAssignToSelf(ticket.id);
                     }}
                   >
-                    📌 Assign to Me
+                    Assign to Me
                   </button>
                 </div>
               ))}
@@ -534,7 +539,7 @@ export default function AgentDashboard() {
         </div>
       </div>
 
-      {/* Ticket Detail Modal with AI Features */}
+      {/* Ticket Detail Modal - Keep existing code */}
       {showDetail && selectedTicket && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
           <div className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto">
@@ -601,7 +606,7 @@ export default function AgentDashboard() {
                 {/* Language Detection */}
                 {ticketLanguage && (
                   <div>
-                    <p className="text-sm text-gray-500">🌐 Language</p>
+                    <p className="text-sm text-gray-500">Language</p>
                     <span className="badge badge-blue">
                       {ticketLanguage.language} ({ticketLanguage.confidence}% confidence)
                     </span>
@@ -611,7 +616,7 @@ export default function AgentDashboard() {
                 {/* Resolution Time Prediction */}
                 {resolutionTime && (
                   <div>
-                    <p className="text-sm text-gray-500">⏱️ Estimated Resolution Time</p>
+                    <p className="text-sm text-gray-500">Estimated Resolution Time</p>
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="badge badge-blue">
                         {resolutionTime.estimated_hours} hours
@@ -630,7 +635,7 @@ export default function AgentDashboard() {
                 {/* Churn Risk */}
                 {churnRisk && (
                   <div>
-                    <p className="text-sm text-gray-500">📉 Churn Risk</p>
+                    <p className="text-sm text-gray-500">Churn Risk</p>
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className={`badge ${
                         churnRisk.risk_level === 'critical' ? 'badge-red' :
@@ -655,7 +660,7 @@ export default function AgentDashboard() {
                 {/* Follow-up Detection */}
                 {followupInfo && (
                   <div>
-                    <p className="text-sm text-gray-500">🔔 Follow-up Required</p>
+                    <p className="text-sm text-gray-500">Follow-up Required</p>
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className={`badge ${followupInfo.needs_followup ? 'badge-yellow' : 'badge-green'}`}>
                         {followupInfo.needs_followup ? 'Yes' : 'No'}
@@ -680,7 +685,7 @@ export default function AgentDashboard() {
                 {/* Quality Score */}
                 {qualityScore && (
                   <div>
-                    <p className="text-sm text-gray-500">📊 AI Response Quality</p>
+                    <p className="text-sm text-gray-500">AI Response Quality</p>
                     <div className="flex items-center gap-4 flex-wrap">
                       <span className="text-lg font-bold text-primary-600">
                         {qualityScore.overall_score}/10
@@ -716,7 +721,7 @@ export default function AgentDashboard() {
                 {/* Reply Options */}
                 {replyOptions.length > 0 && (
                   <div className="pt-2">
-                    <p className="text-sm font-medium text-gray-700 mb-2">💬 Reply Options (Click to use)</p>
+                    <p className="text-sm font-medium text-gray-700 mb-2">Reply Options (Click to use)</p>
                     <div className="space-y-2">
                       {replyOptions.map((option, index) => (
                         <div
@@ -746,7 +751,7 @@ export default function AgentDashboard() {
                 {/* Knowledge Base */}
                 {kbArticles.length > 0 && (
                   <div>
-                    <p className="text-sm font-medium text-gray-700 mb-2">📚 Knowledge Base Articles</p>
+                    <p className="text-sm font-medium text-gray-700 mb-2">Knowledge Base Articles</p>
                     <div className="space-y-1">
                       {kbArticles.map((article, index) => (
                         <div key={index} className="p-2 bg-gray-50 rounded-lg text-sm">
@@ -792,7 +797,7 @@ export default function AgentDashboard() {
                       onClick={() => loadAllAIFeatures(selectedTicket.id)}
                       disabled={loadingFeatures}
                     >
-                      {loadingFeatures ? 'Loading AI Features...' : '🔍 Analyze with AI'}
+                      {loadingFeatures ? 'Loading AI Features...' : 'Analyze with AI'}
                     </button>
                   </div>
                 )}
@@ -871,7 +876,7 @@ export default function AgentDashboard() {
                       className="btn btn-secondary btn-sm"
                       onClick={() => setShowFeedbackForm(!showFeedbackForm)}
                     >
-                      📝 Add Customer Feedback
+                      Add Customer Feedback
                     </button>
                     
                     {showFeedbackForm && (
@@ -897,7 +902,7 @@ export default function AgentDashboard() {
                 {/* Feedback Analysis Results */}
                 {feedbackAnalysis && (
                   <div className="pt-4 border-t border-gray-200">
-                    <p className="text-sm font-medium text-gray-700 mb-2">📝 Feedback Analysis</p>
+                    <p className="text-sm font-medium text-gray-700 mb-2">Feedback Analysis</p>
                     <div className="p-3 bg-gray-50 rounded-lg space-y-2">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-sm font-medium">Sentiment:</span>
@@ -923,16 +928,6 @@ export default function AgentDashboard() {
                           <ul className="text-sm text-gray-600 list-disc pl-4">
                             {feedbackAnalysis.suggestions.map((suggestion, idx) => (
                               <li key={idx}>{suggestion}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                      {feedbackAnalysis.action_items && feedbackAnalysis.action_items.length > 0 && (
-                        <div>
-                          <p className="text-sm font-medium">Action Items:</p>
-                          <ul className="text-sm text-gray-600 list-disc pl-4">
-                            {feedbackAnalysis.action_items.map((item, idx) => (
-                              <li key={idx}>{item}</li>
                             ))}
                           </ul>
                         </div>

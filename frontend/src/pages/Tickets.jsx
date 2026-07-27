@@ -31,10 +31,16 @@ export default function Tickets() {
   const [assignedFilter, setAssignedFilter] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   
-  // Pagination
+  // Pagination states
   const [limit, setLimit] = useState(20);
   const [offset, setOffset] = useState(0);
-  const [totalTickets, setTotalTickets] = useState(0);
+  const [total, setTotal] = useState(0);
+  const [nextOffset, setNextOffset] = useState(null);
+  const [prevOffset, setPrevOffset] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  
+  // Agent options (dynamic)
+  const [agentOptions, setAgentOptions] = useState([]);
   
   // New ticket form
   const [showNewTicket, setShowNewTicket] = useState(false);
@@ -46,16 +52,23 @@ export default function Tickets() {
   });
   const [submitting, setSubmitting] = useState(false);
 
-  // Agent options for assignment
-  const agentOptions = [
-    'Sarah Johnson',
-    'Michael Chen',
-    'Emily Rodriguez',
-    'David Kim',
-    'Jessica Williams'
-  ];
+  // Current agent from login
+  const currentAgent = JSON.parse(localStorage.getItem('user') || '{}')?.name || '';
 
-  const currentAgent = 'Sarah Johnson';
+  // Fetch agents on load
+  useEffect(() => {
+    fetchAgents();
+  }, []);
+
+  const fetchAgents = async () => {
+    try {
+      const response = await apiClient.get('/support/agents');
+      setAgentOptions(response.data.map(agent => agent.name));
+    } catch (error) {
+      console.error('Error fetching agents:', error);
+      setAgentOptions([]);
+    }
+  };
 
   // Fetch tickets on load and filter changes
   useEffect(() => {
@@ -73,8 +86,33 @@ export default function Tickets() {
       if (intentFilter) params.intent = intentFilter;
       
       const response = await apiClient.get('/support/tickets', { params });
-      let ticketsData = response.data || [];
       
+      // Debug: Log the response
+      console.log('Tickets API Response:', response.data);
+      
+      // Handle different response structures
+      let ticketsData = [];
+      let totalCount = 0;
+      
+      // Check if response has data in 'value' (from the API response we saw)
+      if (response.data.value && Array.isArray(response.data.value)) {
+        ticketsData = response.data.value;
+        totalCount = response.data.Count || ticketsData.length;
+      } 
+      // Check if response has data in 'data'
+      else if (response.data.data && Array.isArray(response.data.data)) {
+        ticketsData = response.data.data;
+        totalCount = response.data.pagination?.total || ticketsData.length;
+      }
+      // Fallback: if response itself is an array
+      else if (Array.isArray(response.data)) {
+        ticketsData = response.data;
+        totalCount = ticketsData.length;
+      }
+      
+      console.log('Parsed tickets:', ticketsData.length);
+      
+      // Client-side search
       if (searchTerm) {
         const search = searchTerm.toLowerCase();
         ticketsData = ticketsData.filter(ticket => 
@@ -84,6 +122,7 @@ export default function Tickets() {
         );
       }
       
+      // Filter by assignment
       if (assignedFilter === 'unassigned') {
         ticketsData = ticketsData.filter(ticket => !ticket.assigned_to);
       } else if (assignedFilter === 'assigned') {
@@ -93,7 +132,14 @@ export default function Tickets() {
       }
       
       setTickets(ticketsData);
-      setTotalTickets(response.data.length || 0);
+      setTotal(totalCount);
+      
+      // Set pagination
+      const hasMore = ticketsData.length === limit;
+      setNextOffset(hasMore ? offset + limit : null);
+      setPrevOffset(offset > 0 ? offset - limit : null);
+      setCurrentPage(Math.floor(offset / limit) + 1);
+      
     } catch (error) {
       console.error('Error fetching tickets:', error);
     } finally {
@@ -104,6 +150,15 @@ export default function Tickets() {
   const handleSearch = () => {
     setOffset(0);
     fetchTickets();
+  };
+
+  const handlePageChange = (newOffset) => {
+    setOffset(newOffset);
+  };
+
+  const handleLimitChange = (newLimit) => {
+    setLimit(newLimit);
+    setOffset(0);
   };
 
   const handleUpdateStatus = async (ticketId, newStatus) => {
@@ -373,6 +428,8 @@ export default function Tickets() {
     return new Date(createdAt).toLocaleDateString();
   };
 
+  const totalPages = Math.ceil(total / limit);
+
   return (
     <div>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8">
@@ -467,8 +524,7 @@ export default function Tickets() {
               className="input"
               value={limit}
               onChange={(e) => {
-                setLimit(parseInt(e.target.value));
-                setOffset(0);
+                handleLimitChange(parseInt(e.target.value));
               }}
             >
               <option value="10">10 per page</option>
@@ -615,23 +671,27 @@ export default function Tickets() {
         </div>
       )}
 
-      {totalTickets > limit && (
-        <div className="flex items-center justify-between mt-4">
+      {/* Pagination Controls */}
+      {total > limit && (
+        <div className="flex items-center justify-between mt-4 flex-wrap gap-2">
           <p className="text-sm text-gray-600">
-            Showing {offset + 1} to {Math.min(offset + limit, totalTickets)} of {totalTickets}
+            Showing {offset + 1} to {Math.min(offset + limit, total)} of {total} tickets
           </p>
           <div className="flex gap-2">
             <button
               className="btn btn-secondary btn-sm"
-              onClick={() => setOffset(Math.max(0, offset - limit))}
-              disabled={offset === 0}
+              onClick={() => handlePageChange(prevOffset)}
+              disabled={prevOffset === null}
             >
               Previous
             </button>
+            <span className="text-sm text-gray-600 flex items-center px-2">
+              Page {currentPage} of {totalPages}
+            </span>
             <button
               className="btn btn-secondary btn-sm"
-              onClick={() => setOffset(offset + limit)}
-              disabled={offset + limit >= totalTickets}
+              onClick={() => handlePageChange(nextOffset)}
+              disabled={nextOffset === null}
             >
               Next
             </button>
@@ -639,6 +699,7 @@ export default function Tickets() {
         </div>
       )}
 
+      {/* New Ticket Modal */}
       {showNewTicket && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
           <div className="bg-white rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
@@ -722,6 +783,7 @@ export default function Tickets() {
         </div>
       )}
 
+      {/* Ticket Detail Modal */}
       {showDetail && selectedTicket && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
           <div className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto">
@@ -749,7 +811,6 @@ export default function Tickets() {
               </div>
               
               <div className="space-y-4">
-                {/* Message */}
                 <div>
                   <p className="text-sm text-gray-500">Message</p>
                   <p className="text-gray-700 bg-gray-50 p-3 rounded-lg">
@@ -757,7 +818,6 @@ export default function Tickets() {
                   </p>
                 </div>
                 
-                {/* AI Analysis Grid */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div>
                     <p className="text-sm text-gray-500">Intent</p>
@@ -785,20 +845,18 @@ export default function Tickets() {
                   </div>
                 </div>
 
-                {/* Language Detection */}
                 {ticketLanguage && (
                   <div>
-                    <p className="text-sm text-gray-500">🌐 Language</p>
+                    <p className="text-sm text-gray-500">Language</p>
                     <span className="badge badge-blue">
                       {ticketLanguage.language} ({ticketLanguage.confidence}% confidence)
                     </span>
                   </div>
                 )}
 
-                {/* Resolution Time Prediction */}
                 {resolutionTime && (
                   <div>
-                    <p className="text-sm text-gray-500">⏱️ Estimated Resolution Time</p>
+                    <p className="text-sm text-gray-500">Estimated Resolution Time</p>
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="badge badge-blue">
                         {resolutionTime.estimated_hours} hours
@@ -814,10 +872,9 @@ export default function Tickets() {
                   </div>
                 )}
 
-                {/* Churn Risk */}
                 {churnRisk && (
                   <div>
-                    <p className="text-sm text-gray-500">📉 Churn Risk</p>
+                    <p className="text-sm text-gray-500">Churn Risk</p>
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className={`badge ${
                         churnRisk.risk_level === 'critical' ? 'badge-red' :
@@ -839,10 +896,9 @@ export default function Tickets() {
                   </div>
                 )}
 
-                {/* Follow-up Detection */}
                 {followupInfo && (
                   <div>
-                    <p className="text-sm text-gray-500">🔔 Follow-up Required</p>
+                    <p className="text-sm text-gray-500">Follow-up Required</p>
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className={`badge ${followupInfo.needs_followup ? 'badge-yellow' : 'badge-green'}`}>
                         {followupInfo.needs_followup ? 'Yes' : 'No'}
@@ -864,10 +920,9 @@ export default function Tickets() {
                   </div>
                 )}
 
-                {/* Quality Score */}
                 {qualityScore && (
                   <div>
-                    <p className="text-sm text-gray-500">📊 AI Response Quality</p>
+                    <p className="text-sm text-gray-500">AI Response Quality</p>
                     <div className="flex items-center gap-4 flex-wrap">
                       <span className="text-lg font-bold text-primary-600">
                         {qualityScore.overall_score}/10
@@ -892,7 +947,6 @@ export default function Tickets() {
                   </div>
                 )}
 
-                {/* AI Response */}
                 <div>
                   <p className="text-sm text-gray-500">AI Response</p>
                   <div className="bg-blue-50 p-3 rounded-lg">
@@ -900,10 +954,9 @@ export default function Tickets() {
                   </div>
                 </div>
 
-                {/* Reply Options (Smart Reply Optimization) */}
                 {replyOptions.length > 0 && (
                   <div className="pt-2">
-                    <p className="text-sm font-medium text-gray-700 mb-2">💬 Reply Options (Click to use)</p>
+                    <p className="text-sm font-medium text-gray-700 mb-2">Reply Options (Click to use)</p>
                     <div className="space-y-2">
                       {replyOptions.map((option, index) => (
                         <div
@@ -930,10 +983,9 @@ export default function Tickets() {
                   </div>
                 )}
 
-                {/* Knowledge Base Articles */}
                 {kbArticles.length > 0 && (
                   <div>
-                    <p className="text-sm font-medium text-gray-700 mb-2">📚 Knowledge Base Articles</p>
+                    <p className="text-sm font-medium text-gray-700 mb-2">Knowledge Base Articles</p>
                     <div className="space-y-1">
                       {kbArticles.map((article, index) => (
                         <div key={index} className="p-2 bg-gray-50 rounded-lg text-sm">
@@ -946,7 +998,6 @@ export default function Tickets() {
                   </div>
                 )}
 
-                {/* Assign in Modal */}
                 <div>
                   <p className="text-sm text-gray-500 mb-1">Assign to Agent</p>
                   <select
@@ -965,7 +1016,6 @@ export default function Tickets() {
                   </select>
                 </div>
 
-                {/* Customer Context */}
                 {selectedTicket.customer_email && (
                   <div className="pt-2 flex flex-wrap gap-2">
                     <button
@@ -979,7 +1029,7 @@ export default function Tickets() {
                       onClick={() => loadAllAIFeatures(selectedTicket.id)}
                       disabled={loadingFeatures}
                     >
-                      {loadingFeatures ? 'Loading AI Features...' : '🔍 Analyze with AI'}
+                      {loadingFeatures ? 'Loading AI Features...' : 'Analyze with AI'}
                     </button>
                   </div>
                 )}
@@ -1006,7 +1056,6 @@ export default function Tickets() {
                   </div>
                 )}
 
-                {/* Reply Section */}
                 <div className="pt-4 border-t border-gray-200">
                   <label className="block text-sm font-medium text-gray-700 mb-2">Reply</label>
                   <textarea
@@ -1032,7 +1081,6 @@ export default function Tickets() {
                   </div>
                 </div>
 
-                {/* Status Update */}
                 <div className="pt-4 border-t border-gray-200">
                   <label className="block text-sm font-medium text-gray-700 mb-2">Update Status</label>
                   <div className="flex flex-wrap gap-2">
@@ -1051,14 +1099,13 @@ export default function Tickets() {
                   </div>
                 </div>
 
-                {/* Feedback Section */}
                 {selectedTicket.status === 'resolved' && !feedbackAnalysis && (
                   <div className="pt-4 border-t border-gray-200">
                     <button
                       className="btn btn-secondary btn-sm"
                       onClick={() => setShowFeedbackForm(!showFeedbackForm)}
                     >
-                      📝 Add Customer Feedback
+                      Add Customer Feedback
                     </button>
                     
                     {showFeedbackForm && (
@@ -1081,10 +1128,9 @@ export default function Tickets() {
                   </div>
                 )}
 
-                {/* Feedback Analysis Results */}
                 {feedbackAnalysis && (
                   <div className="pt-4 border-t border-gray-200">
-                    <p className="text-sm font-medium text-gray-700 mb-2">📝 Feedback Analysis</p>
+                    <p className="text-sm font-medium text-gray-700 mb-2">Feedback Analysis</p>
                     <div className="p-3 bg-gray-50 rounded-lg space-y-2">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-sm font-medium">Sentiment:</span>
@@ -1110,16 +1156,6 @@ export default function Tickets() {
                           <ul className="text-sm text-gray-600 list-disc pl-4">
                             {feedbackAnalysis.suggestions.map((suggestion, idx) => (
                               <li key={idx}>{suggestion}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                      {feedbackAnalysis.action_items && feedbackAnalysis.action_items.length > 0 && (
-                        <div>
-                          <p className="text-sm font-medium">Action Items:</p>
-                          <ul className="text-sm text-gray-600 list-disc pl-4">
-                            {feedbackAnalysis.action_items.map((item, idx) => (
-                              <li key={idx}>{item}</li>
                             ))}
                           </ul>
                         </div>

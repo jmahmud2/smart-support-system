@@ -19,7 +19,8 @@ from ..schemas.support import (
     SupportAnalysisResponse
 )
 from ..services.email import send_reply_email, send_ticket_created_email
-from .auth import get_current_user
+from .auth import get_current_user, require_role
+from ..config import Config
 
 router = APIRouter()
 
@@ -113,17 +114,28 @@ async def create_ticket(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/tickets", response_model=list[SupportTicket])
+@router.get("/tickets")
 async def list_tickets(
     db: Session = Depends(get_db),
     status: Optional[str] = Query(None, pattern="^(new|in_progress|resolved|closed)$"),
     intent: Optional[str] = Query(None, pattern="^(refund|shipping|product_inquiry|complaint|general)$"),
-    limit: int = Query(50, ge=1, le=100),
+    limit: int = Query(Config.DEFAULT_PAGE_LIMIT, ge=1, le=Config.MAX_PAGE_LIMIT),
     offset: int = Query(0, ge=0)
 ):
     """List support tickets with optional filters."""
-    tickets = SupportController.get_tickets(db, status, intent, limit, offset)
-    return tickets
+    tickets, total = SupportController.get_tickets_with_count(db, status, intent, limit, offset)
+    
+    # Return consistent structure
+    return {
+        "data": tickets,
+        "pagination": {
+            "total": total,
+            "limit": limit,
+            "offset": offset,
+            "next_offset": offset + limit if offset + limit < total else None,
+            "previous_offset": offset - limit if offset - limit >= 0 else None
+        }
+    }
 
 
 @router.get("/tickets/{ticket_id}", response_model=SupportTicket)
@@ -431,6 +443,7 @@ async def get_kb_articles(
         raise HTTPException(status_code=404, detail="Ticket not found")
     
     articles = AIFeaturesService.get_knowledge_base_articles(
+        db,
         ticket.customer_message,
         ticket.intent or "general"
     )
@@ -534,3 +547,13 @@ async def analyze_feedback(
         {"intent": ticket.intent, "priority": ticket.priority}
     )
     return {"ticket_id": ticket.id, "feedback_analysis": analysis}
+
+
+@router.get("/agents")
+async def get_agents(
+    db: Session = Depends(get_db)
+):
+    """Get all active agents."""
+    from ..database.models import Agent
+    agents = db.query(Agent).filter(Agent.active == True).all()
+    return agents

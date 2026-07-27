@@ -41,4 +41,6 @@ apiClient.interceptors.response.use(
   }
 );
 
+export const getAgents = () => apiClient.get('/support/agents');
+
 export default apiClient;

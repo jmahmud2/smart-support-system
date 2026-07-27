@@ -16,10 +16,12 @@ from dotenv import load_dotenv
 
 from ..database.database import get_db
 from ..database.models import User
+from ..utils.logger import get_logger
 
 load_dotenv()
 
 router = APIRouter(tags=["auth"])
+logger = get_logger(__name__)
 
 SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-here")
 ALGORITHM = "HS256"
@@ -139,3 +141,32 @@ async def protected_route(current_user: dict = Depends(require_role("agent"))):
 async def admin_route(current_user: dict = Depends(require_role("admin"))):
     """Admin only route."""
     return {"message": f"Hello {current_user['name']}, you have admin access"}
+
+
+@router.get("/agent/me")
+async def get_current_agent(
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get the current agent's information."""
+    try:
+        name = current_user.get("name")
+        email = current_user.get("email", "")
+        
+        if not name and email:
+            user = db.query(User).filter(User.email == email).first()
+            if user:
+                name = user.name
+        
+        return {
+            "name": name or "Agent",
+            "role": current_user.get("role", "agent"),
+            "email": email
+        }
+    except Exception as e:
+        logger.error(f"Error getting agent info: {e}")
+        return {
+            "name": "Agent",
+            "role": "agent",
+            "email": ""
+        }

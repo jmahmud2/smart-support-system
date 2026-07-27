@@ -12,7 +12,6 @@ from app.database.models import User
 import bcrypt
 
 def hash_password(password: str) -> str:
-    """Hash a password using bcrypt."""
     salt = bcrypt.gensalt()
     return bcrypt.hashpw(password.encode('utf-8'), salt).decode('utf-8')
 
@@ -20,27 +19,26 @@ def seed_users():
     db = SessionLocal()
     
     try:
-        # Clear existing users
         db.query(User).delete()
         db.commit()
         
         users = [
             {
-                "email": "agent@company.com",
-                "password": hash_password("agent123"),
-                "name": "Sarah Johnson",
+                "email": os.getenv("DEMO_AGENT_EMAIL", "agent@company.com"),
+                "password": hash_password(os.getenv("DEMO_AGENT_PASSWORD", "agent123")),
+                "name": os.getenv("DEMO_AGENT_NAME", "Sarah Johnson"),
                 "role": "agent"
             },
             {
-                "email": "manager@company.com",
-                "password": hash_password("manager123"),
-                "name": "John Manager",
+                "email": os.getenv("DEMO_MANAGER_EMAIL", "manager@company.com"),
+                "password": hash_password(os.getenv("DEMO_MANAGER_PASSWORD", "manager123")),
+                "name": os.getenv("DEMO_MANAGER_NAME", "John Manager"),
                 "role": "manager"
             },
             {
-                "email": "admin@company.com",
-                "password": hash_password("admin123"),
-                "name": "Admin User",
+                "email": os.getenv("DEMO_ADMIN_EMAIL", "admin@company.com"),
+                "password": hash_password(os.getenv("DEMO_ADMIN_PASSWORD", "admin123")),
+                "name": os.getenv("DEMO_ADMIN_NAME", "Admin User"),
                 "role": "admin"
             }
         ]
@@ -51,7 +49,7 @@ def seed_users():
             print(f"Added user: {user_data['email']} ({user_data['role']})")
         
         db.commit()
-        print("Users seeded successfully with bcrypt hashing!")
+        print("Users seeded successfully!")
         
     except Exception as e:
         print(f"Error seeding users: {e}")

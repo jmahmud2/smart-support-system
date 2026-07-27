@@ -2,11 +2,11 @@
 Support controller for handling business logic related to support tickets.
 Coordinates between the database, workflow, and API routes.
 """
-import time
-from unittest import result
+
 from sqlalchemy.orm import Session
-from typing import Optional, List
+from typing import Optional, List, Tuple
 from datetime import datetime, timedelta, timezone
+import time
 
 from ..database.models import SupportTicket, Product
 from ..schemas.support import SupportTicketCreate
@@ -26,12 +26,12 @@ class SupportController:
         """Process a customer message through the AI workflow."""
         start_time = time.time()
         logger.info(f"Analyzing message: {message[:50]}...")
-    
+        
         result = process_message(message)
-    
+        
         elapsed = time.time() - start_time
         logger.info(f"Analysis complete in {elapsed:.2f}s: Intent={result.get('intent')}, Sentiment={result.get('sentiment')}")
-    
+        
         if product_id:
             result['product_id'] = product_id
         return result
@@ -111,6 +111,30 @@ class SupportController:
         tickets = query.order_by(SupportTicket.created_at.desc()).offset(offset).limit(limit).all()
         logger.info(f"Found {len(tickets)} tickets")
         return tickets
+
+    @staticmethod
+    def get_tickets_with_count(
+        db: Session,
+        status: Optional[str] = None,
+        intent: Optional[str] = None,
+        limit: int = 20,
+        offset: int = 0
+    ) -> Tuple[List[SupportTicket], int]:
+        """Get tickets with total count for pagination."""
+        from sqlalchemy import func
+        
+        query = db.query(SupportTicket)
+        
+        if status:
+            query = query.filter(SupportTicket.status == status)
+        if intent:
+            query = query.filter(SupportTicket.intent == intent)
+        
+        total = query.count()
+        
+        tickets = query.order_by(SupportTicket.created_at.desc()).offset(offset).limit(limit).all()
+        
+        return tickets, total
 
     @staticmethod
     def update_status(db: Session, ticket_id: int, status: str) -> Optional[SupportTicket]:

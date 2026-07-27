@@ -17,9 +17,11 @@ OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 OPENROUTER_BASE_URL = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
 OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "google/gemini-2.0-flash-exp:free")
 
-# Rate limiting configuration
-RATE_LIMIT_RETRIES = 3
-RATE_LIMIT_BACKOFF = 2  # seconds
+RATE_LIMIT_RETRIES = int(os.getenv("RATE_LIMIT_RETRIES", 3))
+RATE_LIMIT_BACKOFF = int(os.getenv("RATE_LIMIT_BACKOFF", 2))
+
+FALLBACK_RESPONSE = os.getenv("FALLBACK_RESPONSE", "Unable to process your request at this time. Please try again later.")
+FALLBACK_RATE_LIMIT = os.getenv("FALLBACK_RATE_LIMIT", "Currently experiencing high demand. Please try again in a few moments.")
 
 
 def call_llm(prompt: str, retries: int = RATE_LIMIT_RETRIES) -> str:
@@ -29,7 +31,7 @@ def call_llm(prompt: str, retries: int = RATE_LIMIT_RETRIES) -> str:
     """
     if not OPENROUTER_API_KEY:
         logger.error("OPENROUTER_API_KEY not set in .env file")
-        return "Unable to process request: API key not configured."
+        return FALLBACK_RESPONSE
 
     for attempt in range(retries):
         try:
@@ -58,21 +60,21 @@ def call_llm(prompt: str, retries: int = RATE_LIMIT_RETRIES) -> str:
                 if attempt < retries - 1:
                     time.sleep(wait_time)
                     continue
-                return "Currently experiencing high demand. Please try again in a few moments."
+                return FALLBACK_RATE_LIMIT
 
             if response.status_code != 200:
                 logger.error(f"API Error {response.status_code}: {response.text[:200]}")
                 if attempt < retries - 1:
                     time.sleep(1)
                     continue
-                return "Unable to process request at this time."
+                return FALLBACK_RESPONSE
 
             result = response.json()
             content = result["choices"][0]["message"]["content"]
             
             if content is None:
                 logger.warning("LLM returned None, using fallback")
-                return "Unable to process request. Please try again later."
+                return FALLBACK_RESPONSE
             
             logger.info(f"LLM response received ({len(content)} chars)")
             return content
@@ -82,17 +84,17 @@ def call_llm(prompt: str, retries: int = RATE_LIMIT_RETRIES) -> str:
             if attempt < retries - 1:
                 time.sleep(1)
                 continue
-            return "Request timed out. Please try again."
+            return FALLBACK_RESPONSE
 
         except Exception as e:
             logger.error(f"LLM Exception: {e}")
             if attempt < retries - 1:
                 time.sleep(1)
                 continue
-            return "Unable to process request. Please try again later."
+            return FALLBACK_RESPONSE
 
     logger.error("Maximum retry attempts exceeded")
-    return "Unable to process request. Please try again later."
+    return FALLBACK_RESPONSE
 
 
 def get_available_models() -> list:
