@@ -2,7 +2,8 @@
 Support controller for handling business logic related to support tickets.
 Coordinates between the database, workflow, and API routes.
 """
-
+import time
+from unittest import result
 from sqlalchemy.orm import Session
 from typing import Optional, List
 from datetime import datetime, timedelta, timezone
@@ -23,11 +24,16 @@ class SupportController:
     @staticmethod
     def analyze_message(message: str, product_id: Optional[int] = None) -> dict:
         """Process a customer message through the AI workflow."""
+        start_time = time.time()
         logger.info(f"Analyzing message: {message[:50]}...")
+    
         result = process_message(message)
+    
+        elapsed = time.time() - start_time
+        logger.info(f"Analysis complete in {elapsed:.2f}s: Intent={result.get('intent')}, Sentiment={result.get('sentiment')}")
+    
         if product_id:
             result['product_id'] = product_id
-        logger.info(f"Analysis complete: Intent={result.get('intent')}, Sentiment={result.get('sentiment')}")
         return result
 
     @staticmethod

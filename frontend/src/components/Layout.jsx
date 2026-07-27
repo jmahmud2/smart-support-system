@@ -1,6 +1,13 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 
+const navigation = [
+  { name: 'Dashboard', href: '/' },
+  { name: 'Agent Dashboard', href: '/agent' },
+  { name: 'Products', href: '/products' },
+  { name: 'Tickets', href: '/tickets' },
+];
+
 export default function Layout({ children }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [user, setUser] = useState(null);
@@ -23,7 +30,6 @@ export default function Layout({ children }) {
 
   const isActive = (path) => location.pathname === path;
 
-  // If on login page, don't show navigation
   if (location.pathname === '/login') {
     return (
       <div className="min-h-screen bg-gray-50">
@@ -33,13 +39,6 @@ export default function Layout({ children }) {
       </div>
     );
   }
-
-  const navigation = [
-    { name: 'Dashboard', href: '/' },
-    { name: 'Agent Dashboard', href: '/agent' },
-    { name: 'Products', href: '/products' },
-    { name: 'Tickets', href: '/tickets' },
-  ];
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">

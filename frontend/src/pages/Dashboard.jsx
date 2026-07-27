@@ -247,28 +247,35 @@ export default function Dashboard() {
             />
             
             <div className="flex flex-wrap gap-2">
-              <button
-                className="btn btn-secondary btn-sm"
-                onClick={loadExample}
-              >
-                Load Example
-              </button>
-              <button
-                className="btn btn-primary flex-1"
-                onClick={handleAnalyze}
-                disabled={analyzing || !message.trim()}
-              >
-                {analyzing ? 'Analyzing...' : 'Analyze Message'}
-              </button>
-              {message && (
-                <button
-                  className="btn btn-secondary"
-                  onClick={handleClear}
-                >
-                  Clear
-                </button>
-              )}
-            </div>
+  <button
+    className="btn btn-secondary btn-sm"
+    onClick={loadExample}
+  >
+    Load Example
+  </button>
+  <button
+    className="btn btn-primary flex-1"
+    onClick={handleAnalyze}
+    disabled={analyzing || !message.trim()}
+  >
+    {analyzing ? 'Analyzing...' : 'Analyze Message'}
+  </button>
+  {message && (
+    <button
+      className="btn btn-secondary"
+      onClick={handleClear}
+    >
+      Clear
+    </button>
+  )}
+</div>
+
+{analyzing && (
+  <div className="flex items-center justify-center p-4">
+    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+    <span className="ml-2 text-gray-600">Analyzing message...</span>
+  </div>
+)}
 
             {analysisResult && (
               <div className="mt-4 p-4 bg-gray-50 rounded-lg space-y-3">

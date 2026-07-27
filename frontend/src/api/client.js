@@ -10,7 +10,6 @@ const apiClient = axios.create({
   timeout: 60000,
 });
 
-// Add token to requests
 apiClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('access_token');
@@ -22,9 +21,16 @@ apiClient.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Handle 401 responses
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    const remaining = response.headers['x-ratelimit-remaining'];
+    if (remaining !== undefined) {
+      if (parseInt(remaining) < 5) {
+        window.dispatchEvent(new CustomEvent('rateLimitWarning', { detail: { remaining } }));
+      }
+    }
+    return response;
+  },
   (error) => {
     if (error.response && error.response.status === 401) {
       localStorage.removeItem('access_token');

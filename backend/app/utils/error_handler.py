@@ -21,11 +21,9 @@ class AppException(Exception):
 def handle_exception(exc: Exception, request: Request) -> JSONResponse:
     """Handle exceptions and return consistent JSON responses."""
     
-    # Log the error
     print(f"Error: {exc}")
     print(traceback.format_exc())
     
-    # Handle custom AppException
     if isinstance(exc, AppException):
         return JSONResponse(
             status_code=exc.status_code,
@@ -37,7 +35,6 @@ def handle_exception(exc: Exception, request: Request) -> JSONResponse:
             }
         )
     
-    # Handle HTTPException
     if isinstance(exc, HTTPException):
         return JSONResponse(
             status_code=exc.status_code,
@@ -48,7 +45,6 @@ def handle_exception(exc: Exception, request: Request) -> JSONResponse:
             }
         )
     
-    # Handle validation errors
     if hasattr(exc, "errors"):
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -60,7 +56,6 @@ def handle_exception(exc: Exception, request: Request) -> JSONResponse:
             }
         )
     
-    # Handle everything else
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={
