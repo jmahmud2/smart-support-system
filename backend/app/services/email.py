@@ -1,34 +1,26 @@
 """
-Email service for sending notifications.
-Uses SMTP (can be configured for SendGrid, Resend, etc.).
+Email service for sending notifications using Resend API.
 """
 
 import os
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
+import httpx
 from dotenv import load_dotenv
 
 load_dotenv()
 
-SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com")
-SMTP_PORT = int(os.getenv("SMTP_PORT", 587))
-SMTP_USER = os.getenv("SMTP_USER", "")
-SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
-SMTP_FROM_EMAIL = os.getenv("SMTP_FROM_EMAIL", "support@smart-support.com")
+RESEND_API_KEY = os.getenv("RESEND_API_KEY")
+RESEND_FROM_EMAIL = os.getenv("RESEND_FROM_EMAIL", "support@smart-support.com")
 
 
 def send_reply_email(to_email: str, customer_name: str, reply: str, ticket_id: int) -> bool:
-    """
-    Send a reply email to a customer.
-    """
-    if not SMTP_USER or not SMTP_PASSWORD:
-        print("SMTP credentials not set. Email not sent.")
+    """Send a reply email to a customer using Resend."""
+    if not RESEND_API_KEY:
+        print("RESEND_API_KEY not set. Email not sent.")
         return False
-    
+
     subject = f"Re: Support Ticket #{ticket_id}"
-    
-    html_body = f"""
+
+    html_content = f"""
     <html>
     <body>
         <h2>Hello {customer_name or 'there'},</h2>
@@ -45,38 +37,43 @@ def send_reply_email(to_email: str, customer_name: str, reply: str, ticket_id: i
     </body>
     </html>
     """
-    
-    msg = MIMEMultipart('alternative')
-    msg['Subject'] = subject
-    msg['From'] = SMTP_FROM_EMAIL
-    msg['To'] = to_email
-    
-    part = MIMEText(html_body, 'html')
-    msg.attach(part)
-    
+
     try:
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
-            server.starttls()
-            server.login(SMTP_USER, SMTP_PASSWORD)
-            server.send_message(msg)
-        print(f"Email sent to {to_email}")
-        return True
+        response = httpx.post(
+            "https://api.resend.com/emails",
+            headers={
+                "Authorization": f"Bearer {RESEND_API_KEY}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "from": RESEND_FROM_EMAIL,
+                "to": [to_email],
+                "subject": subject,
+                "html": html_content,
+            },
+            timeout=15.0,
+        )
+
+        if response.status_code == 200:
+            print(f"Email sent to {to_email}")
+            return True
+        else:
+            print(f"Email failed: {response.text}")
+            return False
+
     except Exception as e:
         print(f"Email error: {e}")
         return False
 
 
 def send_ticket_created_email(to_email: str, customer_name: str, ticket_id: int) -> bool:
-    """
-    Send confirmation email when a ticket is created.
-    """
-    if not SMTP_USER or not SMTP_PASSWORD:
-        print("SMTP credentials not set. Email not sent.")
+    """Send confirmation email when a ticket is created."""
+    if not RESEND_API_KEY:
         return False
-    
+
     subject = f"Support Ticket #{ticket_id} Received"
-    
-    html_body = f"""
+
+    html_content = f"""
     <html>
     <body>
         <h2>Hello {customer_name or 'there'},</h2>
@@ -85,74 +82,69 @@ def send_ticket_created_email(to_email: str, customer_name: str, ticket_id: int)
         <p>You can expect a response within 24 hours.</p>
         <br>
         <p>Best regards,<br>Support Team</p>
-        <p style="font-size: 12px; color: #888;">
-            Ticket #{ticket_id} | Smart Support System
-        </p>
     </body>
     </html>
     """
-    
-    msg = MIMEMultipart('alternative')
-    msg['Subject'] = subject
-    msg['From'] = SMTP_FROM_EMAIL
-    msg['To'] = to_email
-    
-    part = MIMEText(html_body, 'html')
-    msg.attach(part)
-    
+
     try:
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
-            server.starttls()
-            server.login(SMTP_USER, SMTP_PASSWORD)
-            server.send_message(msg)
-        print(f"Ticket confirmation email sent to {to_email}")
-        return True
+        response = httpx.post(
+            "https://api.resend.com/emails",
+            headers={
+                "Authorization": f"Bearer {RESEND_API_KEY}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "from": RESEND_FROM_EMAIL,
+                "to": [to_email],
+                "subject": subject,
+                "html": html_content,
+            },
+            timeout=15.0,
+        )
+
+        return response.status_code == 200
     except Exception as e:
         print(f"Email error: {e}")
         return False
 
 
 def send_ticket_resolved_email(to_email: str, customer_name: str, ticket_id: int) -> bool:
-    """
-    Send notification when a ticket is resolved.
-    """
-    if not SMTP_USER or not SMTP_PASSWORD:
-        print("SMTP credentials not set. Email not sent.")
+    """Send notification when a ticket is resolved."""
+    if not RESEND_API_KEY:
         return False
-    
+
     subject = f"Support Ticket #{ticket_id} Resolved"
-    
-    html_body = f"""
+
+    html_content = f"""
     <html>
     <body>
         <h2>Hello {customer_name or 'there'},</h2>
         <p>We are happy to inform you that your support ticket <strong>#{ticket_id}</strong> has been resolved.</p>
-        <p>If you're satisfied with the resolution, you don't need to do anything.</p>
-        <p>If you're still experiencing issues, please reply to this email and we'll reopen the ticket.</p>
+        <p>If you're satisfied, you don't need to do anything.</p>
+        <p>If you're still experiencing issues, reply to this email and we'll reopen the ticket.</p>
         <br>
         <p>Best regards,<br>Support Team</p>
-        <p style="font-size: 12px; color: #888;">
-            Ticket #{ticket_id} | Smart Support System
-        </p>
     </body>
     </html>
     """
-    
-    msg = MIMEMultipart('alternative')
-    msg['Subject'] = subject
-    msg['From'] = SMTP_FROM_EMAIL
-    msg['To'] = to_email
-    
-    part = MIMEText(html_body, 'html')
-    msg.attach(part)
-    
+
     try:
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
-            server.starttls()
-            server.login(SMTP_USER, SMTP_PASSWORD)
-            server.send_message(msg)
-        print(f"Resolution email sent to {to_email}")
-        return True
+        response = httpx.post(
+            "https://api.resend.com/emails",
+            headers={
+                "Authorization": f"Bearer {RESEND_API_KEY}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "from": RESEND_FROM_EMAIL,
+                "to": [to_email],
+                "subject": subject,
+                "html": html_content,
+            },
+            timeout=15.0,
+        )
+
+        return response.status_code == 200
     except Exception as e:
         print(f"Email error: {e}")
         return False

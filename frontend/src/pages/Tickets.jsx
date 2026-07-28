@@ -87,30 +87,20 @@ export default function Tickets() {
       
       const response = await apiClient.get('/support/tickets', { params });
       
-      // Debug: Log the response
-      console.log('Tickets API Response:', response.data);
-      
       // Handle different response structures
       let ticketsData = [];
       let totalCount = 0;
       
-      // Check if response has data in 'value' (from the API response we saw)
       if (response.data.value && Array.isArray(response.data.value)) {
         ticketsData = response.data.value;
         totalCount = response.data.Count || ticketsData.length;
-      } 
-      // Check if response has data in 'data'
-      else if (response.data.data && Array.isArray(response.data.data)) {
+      } else if (response.data.data && Array.isArray(response.data.data)) {
         ticketsData = response.data.data;
         totalCount = response.data.pagination?.total || ticketsData.length;
-      }
-      // Fallback: if response itself is an array
-      else if (Array.isArray(response.data)) {
+      } else if (Array.isArray(response.data)) {
         ticketsData = response.data;
         totalCount = ticketsData.length;
       }
-      
-      console.log('Parsed tickets:', ticketsData.length);
       
       // Client-side search
       if (searchTerm) {
@@ -134,7 +124,6 @@ export default function Tickets() {
       setTickets(ticketsData);
       setTotal(totalCount);
       
-      // Set pagination
       const hasMore = ticketsData.length === limit;
       setNextOffset(hasMore ? offset + limit : null);
       setPrevOffset(offset > 0 ? offset - limit : null);
@@ -430,29 +419,74 @@ export default function Tickets() {
 
   const totalPages = Math.ceil(total / limit);
 
+  // Export functions
+  const handleExportCSV = async () => {
+    if (tickets.length === 0) {
+      alert('No tickets to export');
+      return;
+    }
+    try {
+      const { exportTicketsToCSV } = await import('../utils/exportUtils');
+      exportTicketsToCSV(tickets);
+    } catch (error) {
+      console.error('Error exporting CSV:', error);
+      alert('Failed to export CSV');
+    }
+  };
+
+  const handleExportExcel = async () => {
+    if (tickets.length === 0) {
+      alert('No tickets to export');
+      return;
+    }
+    try {
+      const { exportTicketsToExcel } = await import('../utils/exportUtils');
+      exportTicketsToExcel(tickets);
+    } catch (error) {
+      console.error('Error exporting Excel:', error);
+      alert('Failed to export Excel');
+    }
+  };
+
   return (
     <div>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Support Tickets</h1>
-          <p className="text-gray-600 mt-1">Manage and track customer support tickets</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-slate-100">Support Tickets</h1>
+          <p className="text-gray-600 dark:text-slate-400 mt-1">Manage and track customer support tickets</p>
         </div>
-        <button
-          className="btn btn-primary mt-4 sm:mt-0"
-          onClick={() => setShowNewTicket(true)}
-        >
-          + New Ticket
-        </button>
+        <div className="flex flex-wrap gap-2 mt-4 sm:mt-0">
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={handleExportCSV}
+            disabled={tickets.length === 0}
+          >
+            Export CSV
+          </button>
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={handleExportExcel}
+            disabled={tickets.length === 0}
+          >
+            Export Excel
+          </button>
+          <button
+            className="btn btn-primary mt-4 sm:mt-0"
+            onClick={() => setShowNewTicket(true)}
+          >
+            + New Ticket
+          </button>
+        </div>
       </div>
 
       <div className="card mb-8">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">Search</label>
             <div className="flex gap-2">
               <input
                 type="text"
-                className="input flex-1"
+                className="input"
                 placeholder="Search name, email, message..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -468,7 +502,7 @@ export default function Tickets() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">Status</label>
             <select
               className="input"
               value={statusFilter}
@@ -485,7 +519,7 @@ export default function Tickets() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Intent</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">Intent</label>
             <select
               className="input"
               value={intentFilter}
@@ -502,7 +536,7 @@ export default function Tickets() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Assigned</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">Assigned</label>
             <select
               className="input"
               value={assignedFilter}
@@ -519,7 +553,7 @@ export default function Tickets() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Show</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">Show</label>
             <select
               className="input"
               value={limit}
@@ -535,9 +569,9 @@ export default function Tickets() {
         </div>
 
         {(statusFilter || intentFilter || assignedFilter || searchTerm) && (
-          <div className="mt-4 pt-4 border-t border-gray-200">
+          <div className="mt-4 pt-4 border-t border-gray-200 dark:border-slate-700">
             <button
-              className="text-sm text-primary-600 hover:text-primary-700"
+              className="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300"
               onClick={() => {
                 setStatusFilter('');
                 setIntentFilter('');
@@ -554,32 +588,32 @@ export default function Tickets() {
 
       {loading ? (
         <div className="flex items-center justify-center h-64">
-          <div className="text-gray-500">Loading tickets...</div>
+          <div className="text-gray-500 dark:text-slate-400">Loading tickets...</div>
         </div>
       ) : tickets.length === 0 ? (
         <div className="card text-center py-12">
-          <p className="text-gray-500">No tickets found</p>
+          <p className="text-gray-500 dark:text-slate-400">No tickets found</p>
         </div>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-gray-50">
+            <thead className="bg-gray-50 dark:bg-slate-700">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Message</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">AI Analysis</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Assigned To</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-slate-300 uppercase tracking-wider">ID</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-slate-300 uppercase tracking-wider">Customer</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-slate-300 uppercase tracking-wider">Email</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-slate-300 uppercase tracking-wider">Message</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-slate-300 uppercase tracking-wider">AI Analysis</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-slate-300 uppercase tracking-wider">Status</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-slate-300 uppercase tracking-wider">Assigned To</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-slate-300 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
+            <tbody className="divide-y divide-gray-200 dark:divide-slate-700">
               {tickets.map((ticket) => (
                 <tr
                   key={ticket.id}
-                  className="hover:bg-gray-50 cursor-pointer transition-colors"
+                  className="hover:bg-gray-50 dark:hover:bg-slate-700 cursor-pointer transition-colors"
                   onClick={() => {
                     setSelectedTicket(ticket);
                     setShowDetail(true);
@@ -598,14 +632,14 @@ export default function Tickets() {
                     setFeedbackText('');
                   }}
                 >
-                  <td className="px-4 py-3 text-sm font-medium text-gray-900">#{ticket.id}</td>
-                  <td className="px-4 py-3 text-sm text-gray-900 max-w-[100px] truncate">
+                  <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-slate-100">#{ticket.id}</td>
+                  <td className="px-4 py-3 text-sm text-gray-900 dark:text-slate-100 max-w-[100px] truncate">
                     {ticket.customer_name || 'Anonymous'}
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-500 max-w-[100px] truncate">
+                  <td className="px-4 py-3 text-sm text-gray-500 dark:text-slate-400 max-w-[100px] truncate">
                     {ticket.customer_email || '—'}
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-600 max-w-xs truncate">
+                  <td className="px-4 py-3 text-sm text-gray-600 dark:text-slate-300 max-w-xs truncate">
                     {ticket.customer_message?.substring(0, 60) || 'No message'}
                   </td>
                   <td className="px-4 py-3">
@@ -629,13 +663,13 @@ export default function Tickets() {
                       {ticket.status || 'new'}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-500 max-w-[100px] truncate">
+                  <td className="px-4 py-3 text-sm text-gray-500 dark:text-slate-400 max-w-[100px] truncate">
                     {ticket.assigned_to || 'Unassigned'}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-1">
                       <select
-                        className="text-xs border rounded px-2 py-1 max-w-[80px]"
+                        className="text-xs border rounded px-2 py-1 max-w-[80px] bg-white dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200"
                         value={ticket.assigned_to || ''}
                         onChange={(e) => {
                           e.stopPropagation();
@@ -650,7 +684,7 @@ export default function Tickets() {
                       </select>
                       
                       <select
-                        className="text-xs border rounded px-2 py-1"
+                        className="text-xs border rounded px-2 py-1 bg-white dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200"
                         value={ticket.status}
                         onChange={(e) => {
                           e.stopPropagation();
@@ -674,7 +708,7 @@ export default function Tickets() {
       {/* Pagination Controls */}
       {total > limit && (
         <div className="flex items-center justify-between mt-4 flex-wrap gap-2">
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-gray-600 dark:text-slate-400">
             Showing {offset + 1} to {Math.min(offset + limit, total)} of {total} tickets
           </p>
           <div className="flex gap-2">
@@ -685,7 +719,7 @@ export default function Tickets() {
             >
               Previous
             </button>
-            <span className="text-sm text-gray-600 flex items-center px-2">
+            <span className="text-sm text-gray-600 dark:text-slate-400 flex items-center px-2">
               Page {currentPage} of {totalPages}
             </span>
             <button
@@ -702,12 +736,12 @@ export default function Tickets() {
       {/* New Ticket Modal */}
       {showNewTicket && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-          <div className="bg-white rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-white dark:bg-slate-800 rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex items-start justify-between mb-4">
-                <h2 className="text-xl font-bold text-gray-900">New Support Ticket</h2>
+                <h2 className="text-xl font-bold text-gray-900 dark:text-slate-100">New Support Ticket</h2>
                 <button
-                  className="text-gray-400 hover:text-gray-600 text-2xl"
+                  className="text-gray-400 hover:text-gray-600 dark:text-slate-400 dark:hover:text-slate-200 text-2xl"
                   onClick={() => setShowNewTicket(false)}
                 >
                   ×
@@ -717,7 +751,7 @@ export default function Tickets() {
               <form onSubmit={handleCreateTicket}>
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">Customer Name</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-slate-300">Customer Name</label>
                     <input
                       type="text"
                       className="input"
@@ -728,7 +762,7 @@ export default function Tickets() {
                   </div>
                   
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">Customer Email</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-slate-300">Customer Email</label>
                     <input
                       type="email"
                       className="input"
@@ -739,7 +773,7 @@ export default function Tickets() {
                   </div>
                   
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">Message *</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-slate-300">Message *</label>
                     <textarea
                       className="input min-h-[100px]"
                       placeholder="Describe the issue..."
@@ -750,7 +784,7 @@ export default function Tickets() {
                   </div>
                   
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">Product ID (optional)</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-slate-300">Product ID (optional)</label>
                     <input
                       type="number"
                       className="input"
@@ -786,24 +820,24 @@ export default function Tickets() {
       {/* Ticket Detail Modal */}
       {showDetail && selectedTicket && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-          <div className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-white dark:bg-slate-800 rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex items-start justify-between mb-4">
                 <div>
-                  <h2 className="text-xl font-bold text-gray-900">
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-slate-100">
                     Ticket #{selectedTicket.id}
                   </h2>
                   <div className="flex items-center gap-2 mt-1 flex-wrap">
-                    <span className="text-sm text-gray-600">{selectedTicket.customer_name || 'Anonymous'}</span>
-                    <span className="text-sm text-gray-400">•</span>
-                    <span className="text-sm text-gray-600">{selectedTicket.customer_email || 'No email'}</span>
-                    <span className="text-xs text-gray-400 ml-2">
+                    <span className="text-sm text-gray-600 dark:text-slate-300">{selectedTicket.customer_name || 'Anonymous'}</span>
+                    <span className="text-sm text-gray-400 dark:text-slate-500">•</span>
+                    <span className="text-sm text-gray-600 dark:text-slate-300">{selectedTicket.customer_email || 'No email'}</span>
+                    <span className="text-xs text-gray-400 dark:text-slate-500 ml-2">
                       ({getTimeAgo(selectedTicket.created_at)})
                     </span>
                   </div>
                 </div>
                 <button
-                  className="text-gray-400 hover:text-gray-600 text-2xl"
+                  className="text-gray-400 hover:text-gray-600 dark:text-slate-400 dark:hover:text-slate-200 text-2xl"
                   onClick={() => setShowDetail(false)}
                 >
                   ×
@@ -812,33 +846,33 @@ export default function Tickets() {
               
               <div className="space-y-4">
                 <div>
-                  <p className="text-sm text-gray-500">Message</p>
-                  <p className="text-gray-700 bg-gray-50 p-3 rounded-lg">
+                  <p className="text-sm text-gray-500 dark:text-slate-400">Message</p>
+                  <p className="text-gray-700 dark:text-slate-200 bg-gray-50 dark:bg-slate-700 p-3 rounded-lg">
                     {selectedTicket.customer_message || 'No message'}
                   </p>
                 </div>
                 
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div>
-                    <p className="text-sm text-gray-500">Intent</p>
+                    <p className="text-sm text-gray-500 dark:text-slate-400">Intent</p>
                     <span className={`badge ${getBadgeColor('intent', selectedTicket.intent)}`}>
                       {selectedTicket.intent || 'unknown'}
                     </span>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500">Sentiment</p>
+                    <p className="text-sm text-gray-500 dark:text-slate-400">Sentiment</p>
                     <span className={`badge ${getBadgeColor('sentiment', selectedTicket.sentiment)}`}>
                       {selectedTicket.sentiment || 'neutral'}
                     </span>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500">Priority</p>
+                    <p className="text-sm text-gray-500 dark:text-slate-400">Priority</p>
                     <span className={`badge ${getBadgeColor('priority', selectedTicket.priority)}`}>
                       {selectedTicket.priority || 'low'}
                     </span>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500">Escalate</p>
+                    <p className="text-sm text-gray-500 dark:text-slate-400">Escalate</p>
                     <span className={`badge ${getBadgeColor('escalate', selectedTicket.escalate)}`}>
                       {selectedTicket.escalate ? 'Yes' : 'No'}
                     </span>
@@ -847,7 +881,7 @@ export default function Tickets() {
 
                 {ticketLanguage && (
                   <div>
-                    <p className="text-sm text-gray-500">Language</p>
+                    <p className="text-sm text-gray-500 dark:text-slate-400">Language</p>
                     <span className="badge badge-blue">
                       {ticketLanguage.language} ({ticketLanguage.confidence}% confidence)
                     </span>
@@ -856,25 +890,25 @@ export default function Tickets() {
 
                 {resolutionTime && (
                   <div>
-                    <p className="text-sm text-gray-500">Estimated Resolution Time</p>
+                    <p className="text-sm text-gray-500 dark:text-slate-400">Estimated Resolution Time</p>
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="badge badge-blue">
                         {resolutionTime.estimated_hours} hours
                       </span>
-                      <span className="text-xs text-gray-500">
+                      <span className="text-xs text-gray-500 dark:text-slate-400">
                         ({resolutionTime.minimum_hours} - {resolutionTime.maximum_hours} hours)
                       </span>
-                      <span className="text-xs text-gray-500">
+                      <span className="text-xs text-gray-500 dark:text-slate-400">
                         Confidence: {resolutionTime.confidence}
                       </span>
                     </div>
-                    <p className="text-xs text-gray-500 mt-1">{resolutionTime.reasoning}</p>
+                    <p className="text-xs text-gray-500 dark:text-slate-400 mt-1">{resolutionTime.reasoning}</p>
                   </div>
                 )}
 
                 {churnRisk && (
                   <div>
-                    <p className="text-sm text-gray-500">Churn Risk</p>
+                    <p className="text-sm text-gray-500 dark:text-slate-400">Churn Risk</p>
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className={`badge ${
                         churnRisk.risk_level === 'critical' ? 'badge-red' :
@@ -885,7 +919,7 @@ export default function Tickets() {
                         {churnRisk.risk_level.toUpperCase()} ({churnRisk.churn_risk}%)
                       </span>
                     </div>
-                    <p className="text-xs text-gray-500 mt-1">{churnRisk.recommendation}</p>
+                    <p className="text-xs text-gray-500 dark:text-slate-400 mt-1">{churnRisk.recommendation}</p>
                     {churnRisk.factors && churnRisk.factors.length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-1">
                         {churnRisk.factors.map((factor, idx) => (
@@ -898,22 +932,22 @@ export default function Tickets() {
 
                 {followupInfo && (
                   <div>
-                    <p className="text-sm text-gray-500">Follow-up Required</p>
+                    <p className="text-sm text-gray-500 dark:text-slate-400">Follow-up Required</p>
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className={`badge ${followupInfo.needs_followup ? 'badge-yellow' : 'badge-green'}`}>
                         {followupInfo.needs_followup ? 'Yes' : 'No'}
                       </span>
                       {followupInfo.needs_followup && (
                         <>
-                          <span className="text-xs text-gray-500">
+                          <span className="text-xs text-gray-500 dark:text-slate-400">
                             Timeline: {followupInfo.suggested_timeline}
                           </span>
                         </>
                       )}
                     </div>
-                    <p className="text-xs text-gray-500 mt-1">{followupInfo.reasoning}</p>
+                    <p className="text-xs text-gray-500 dark:text-slate-400 mt-1">{followupInfo.reasoning}</p>
                     {followupInfo.needs_followup && followupInfo.followup_question && (
-                      <p className="text-xs text-blue-600 mt-1">
+                      <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
                         Suggested follow-up: "{followupInfo.followup_question}"
                       </p>
                     )}
@@ -922,9 +956,9 @@ export default function Tickets() {
 
                 {qualityScore && (
                   <div>
-                    <p className="text-sm text-gray-500">AI Response Quality</p>
+                    <p className="text-sm text-gray-500 dark:text-slate-400">AI Response Quality</p>
                     <div className="flex items-center gap-4 flex-wrap">
-                      <span className="text-lg font-bold text-primary-600">
+                      <span className="text-lg font-bold text-primary-600 dark:text-primary-400">
                         {qualityScore.overall_score}/10
                       </span>
                       <div className="flex flex-wrap gap-2">
@@ -933,35 +967,35 @@ export default function Tickets() {
                         <span className="badge badge-purple">Completeness: {qualityScore.completeness}/10</span>
                       </div>
                     </div>
-                    <p className="text-xs text-gray-500 mt-1">{qualityScore.recommendation}</p>
+                    <p className="text-xs text-gray-500 dark:text-slate-400 mt-1">{qualityScore.recommendation}</p>
                     {qualityScore.strengths && qualityScore.strengths.length > 0 && (
                       <div className="mt-1">
-                        <span className="text-xs text-green-600">Strengths: {qualityScore.strengths.join(', ')}</span>
+                        <span className="text-xs text-green-600 dark:text-green-400">Strengths: {qualityScore.strengths.join(', ')}</span>
                       </div>
                     )}
                     {qualityScore.improvements && qualityScore.improvements.length > 0 && (
                       <div className="mt-1">
-                        <span className="text-xs text-orange-600">Improvements: {qualityScore.improvements.join(', ')}</span>
+                        <span className="text-xs text-orange-600 dark:text-orange-400">Improvements: {qualityScore.improvements.join(', ')}</span>
                       </div>
                     )}
                   </div>
                 )}
 
                 <div>
-                  <p className="text-sm text-gray-500">AI Response</p>
-                  <div className="bg-blue-50 p-3 rounded-lg">
-                    <p className="text-gray-700">{selectedTicket.response || 'No response generated'}</p>
+                  <p className="text-sm text-gray-500 dark:text-slate-400">AI Response</p>
+                  <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
+                    <p className="text-gray-700 dark:text-slate-200">{selectedTicket.response || 'No response generated'}</p>
                   </div>
                 </div>
 
                 {replyOptions.length > 0 && (
                   <div className="pt-2">
-                    <p className="text-sm font-medium text-gray-700 mb-2">Reply Options (Click to use)</p>
+                    <p className="text-sm font-medium text-gray-700 dark:text-slate-200 mb-2">Reply Options (Click to use)</p>
                     <div className="space-y-2">
                       {replyOptions.map((option, index) => (
                         <div
                           key={index}
-                          className="p-3 bg-gray-50 rounded-lg border border-gray-200 hover:border-primary-300 cursor-pointer transition-colors"
+                          className="p-3 bg-gray-50 dark:bg-slate-700 rounded-lg border border-gray-200 dark:border-slate-600 hover:border-primary-300 dark:hover:border-primary-500 cursor-pointer transition-colors"
                           onClick={() => {
                             setReplyMessage(option.reply);
                           }}
@@ -974,9 +1008,9 @@ export default function Tickets() {
                             }`}>
                               {option.tone}
                             </span>
-                            <span className="text-xs text-gray-500">{option.reasoning}</span>
+                            <span className="text-xs text-gray-500 dark:text-slate-400">{option.reasoning}</span>
                           </div>
-                          <p className="text-sm text-gray-700 mt-1">{option.reply}</p>
+                          <p className="text-sm text-gray-700 dark:text-slate-200 mt-1">{option.reply}</p>
                         </div>
                       ))}
                     </div>
@@ -985,12 +1019,12 @@ export default function Tickets() {
 
                 {kbArticles.length > 0 && (
                   <div>
-                    <p className="text-sm font-medium text-gray-700 mb-2">Knowledge Base Articles</p>
+                    <p className="text-sm font-medium text-gray-700 dark:text-slate-200 mb-2">Knowledge Base Articles</p>
                     <div className="space-y-1">
                       {kbArticles.map((article, index) => (
-                        <div key={index} className="p-2 bg-gray-50 rounded-lg text-sm">
-                          <span className="font-medium">{article.title}</span>
-                          <p className="text-gray-600 text-xs">{article.content?.substring(0, 100)}...</p>
+                        <div key={index} className="p-2 bg-gray-50 dark:bg-slate-700 rounded-lg text-sm">
+                          <span className="font-medium text-gray-900 dark:text-slate-100">{article.title}</span>
+                          <p className="text-gray-600 dark:text-slate-300 text-xs">{article.content?.substring(0, 100)}...</p>
                           <span className="badge badge-gray text-xs">{article.category}</span>
                         </div>
                       ))}
@@ -999,7 +1033,7 @@ export default function Tickets() {
                 )}
 
                 <div>
-                  <p className="text-sm text-gray-500 mb-1">Assign to Agent</p>
+                  <p className="text-sm text-gray-500 dark:text-slate-400 mb-1">Assign to Agent</p>
                   <select
                     className="input max-w-[200px]"
                     value={selectedTicket.assigned_to || ''}
@@ -1036,18 +1070,18 @@ export default function Tickets() {
 
                 {showHistory && customerHistory.length > 0 && (
                   <div>
-                    <h4 className="text-sm font-medium text-gray-700 mb-2">Previous Tickets</h4>
+                    <h4 className="text-sm font-medium text-gray-700 dark:text-slate-200 mb-2">Previous Tickets</h4>
                     <div className="space-y-2 max-h-48 overflow-y-auto">
                       {customerHistory.map((ticket) => (
-                        <div key={ticket.id} className="p-2 bg-gray-50 rounded-lg text-sm">
+                        <div key={ticket.id} className="p-2 bg-gray-50 dark:bg-slate-700 rounded-lg text-sm">
                           <div className="flex justify-between">
-                            <span className="font-medium">#{ticket.id}</span>
+                            <span className="font-medium text-gray-900 dark:text-slate-100">#{ticket.id}</span>
                             <span className={`badge ${getBadgeColor('status', ticket.status)}`}>
                               {ticket.status}
                             </span>
                           </div>
-                          <p className="text-gray-600 truncate">{ticket.customer_message}</p>
-                          <span className="text-xs text-gray-400">
+                          <p className="text-gray-600 dark:text-slate-300 truncate">{ticket.customer_message}</p>
+                          <span className="text-xs text-gray-400 dark:text-slate-500">
                             {new Date(ticket.created_at).toLocaleDateString()}
                           </span>
                         </div>
@@ -1056,8 +1090,8 @@ export default function Tickets() {
                   </div>
                 )}
 
-                <div className="pt-4 border-t border-gray-200">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Reply</label>
+                <div className="pt-4 border-t border-gray-200 dark:border-slate-700">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-slate-200 mb-2">Reply</label>
                   <textarea
                     className="input min-h-[80px]"
                     placeholder="Type your reply..."
@@ -1081,8 +1115,8 @@ export default function Tickets() {
                   </div>
                 </div>
 
-                <div className="pt-4 border-t border-gray-200">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Update Status</label>
+                <div className="pt-4 border-t border-gray-200 dark:border-slate-700">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-slate-200 mb-2">Update Status</label>
                   <div className="flex flex-wrap gap-2">
                     {['new', 'in_progress', 'resolved', 'closed'].map((status) => (
                       <button
@@ -1100,7 +1134,7 @@ export default function Tickets() {
                 </div>
 
                 {selectedTicket.status === 'resolved' && !feedbackAnalysis && (
-                  <div className="pt-4 border-t border-gray-200">
+                  <div className="pt-4 border-t border-gray-200 dark:border-slate-700">
                     <button
                       className="btn btn-secondary btn-sm"
                       onClick={() => setShowFeedbackForm(!showFeedbackForm)}
@@ -1129,20 +1163,20 @@ export default function Tickets() {
                 )}
 
                 {feedbackAnalysis && (
-                  <div className="pt-4 border-t border-gray-200">
-                    <p className="text-sm font-medium text-gray-700 mb-2">Feedback Analysis</p>
-                    <div className="p-3 bg-gray-50 rounded-lg space-y-2">
+                  <div className="pt-4 border-t border-gray-200 dark:border-slate-700">
+                    <p className="text-sm font-medium text-gray-700 dark:text-slate-200 mb-2">Feedback Analysis</p>
+                    <div className="p-3 bg-gray-50 dark:bg-slate-700 rounded-lg space-y-2">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm font-medium">Sentiment:</span>
+                        <span className="text-sm font-medium text-gray-700 dark:text-slate-200">Sentiment:</span>
                         <span className={`badge ${feedbackAnalysis.sentiment === 'positive' ? 'badge-green' : feedbackAnalysis.sentiment === 'negative' ? 'badge-red' : 'badge-yellow'}`}>
                           {feedbackAnalysis.sentiment}
                         </span>
-                        <span className="text-sm font-medium ml-4">Satisfaction:</span>
+                        <span className="text-sm font-medium text-gray-700 dark:text-slate-200 ml-4">Satisfaction:</span>
                         <span className="badge badge-blue">{feedbackAnalysis.satisfaction_score}/10</span>
                       </div>
                       {feedbackAnalysis.key_themes && feedbackAnalysis.key_themes.length > 0 && (
                         <div>
-                          <p className="text-sm font-medium">Key Themes:</p>
+                          <p className="text-sm font-medium text-gray-700 dark:text-slate-200">Key Themes:</p>
                           <div className="flex flex-wrap gap-1 mt-1">
                             {feedbackAnalysis.key_themes.map((theme, idx) => (
                               <span key={idx} className="badge badge-gray">{theme}</span>
@@ -1152,8 +1186,8 @@ export default function Tickets() {
                       )}
                       {feedbackAnalysis.suggestions && feedbackAnalysis.suggestions.length > 0 && (
                         <div>
-                          <p className="text-sm font-medium">Suggestions:</p>
-                          <ul className="text-sm text-gray-600 list-disc pl-4">
+                          <p className="text-sm font-medium text-gray-700 dark:text-slate-200">Suggestions:</p>
+                          <ul className="text-sm text-gray-600 dark:text-slate-300 list-disc pl-4">
                             {feedbackAnalysis.suggestions.map((suggestion, idx) => (
                               <li key={idx}>{suggestion}</li>
                             ))}

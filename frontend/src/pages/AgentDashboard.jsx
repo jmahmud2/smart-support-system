@@ -19,7 +19,6 @@ export default function AgentDashboard() {
   const [customerHistory, setCustomerHistory] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
   
-  // AI Features state
   const [replyOptions, setReplyOptions] = useState([]);
   const [qualityScore, setQualityScore] = useState(null);
   const [kbArticles, setKbArticles] = useState([]);
@@ -33,7 +32,6 @@ export default function AgentDashboard() {
   const [analyzing, setAnalyzing] = useState(false);
   const [loadingFeatures, setLoadingFeatures] = useState(false);
   
-  // Agent options (dynamic)
   const [agentOptions, setAgentOptions] = useState([]);
 
   useEffect(() => {
@@ -175,8 +173,6 @@ export default function AgentDashboard() {
       alert('Failed to fetch customer history');
     }
   };
-
-  // ============ AI FEATURES FUNCTIONS ============
 
   const fetchReplyOptions = async (ticketId) => {
     if (!ticketId) return;
@@ -350,7 +346,7 @@ export default function AgentDashboard() {
   if (loading || !agent) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-gray-500">Loading your dashboard...</div>
+        <div className="text-gray-500 dark:text-slate-400">Loading your dashboard...</div>
       </div>
     );
   }
@@ -360,10 +356,10 @@ export default function AgentDashboard() {
       <div className="mb-8">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Welcome back, {agent.name}</h1>
-            <p className="text-gray-600 mt-1">Here's what you need to work on today</p>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-slate-100">Welcome back, {agent.name}</h1>
+            <p className="text-gray-600 dark:text-slate-400 mt-1">Here's what you need to work on today</p>
           </div>
-          <Link to="/tickets" className="text-sm text-primary-600 hover:text-primary-700">
+          <Link to="/tickets" className="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300">
             View All Tickets →
           </Link>
         </div>
@@ -371,31 +367,31 @@ export default function AgentDashboard() {
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
         <div className="card">
-          <p className="text-sm text-gray-500">My Open Tickets</p>
-          <p className="text-2xl font-bold text-primary-600">{stats.myOpen}</p>
+          <p className="text-sm text-gray-500 dark:text-slate-400">My Open Tickets</p>
+          <p className="text-2xl font-bold text-primary-600 dark:text-primary-400">{stats.myOpen}</p>
         </div>
         <div className="card">
-          <p className="text-sm text-gray-500">Resolved Today</p>
-          <p className="text-2xl font-bold text-green-600">{stats.resolvedToday}</p>
+          <p className="text-sm text-gray-500 dark:text-slate-400">Resolved Today</p>
+          <p className="text-2xl font-bold text-green-600 dark:text-green-400">{stats.resolvedToday}</p>
         </div>
         <div className="card">
-          <p className="text-sm text-gray-500">Pending Replies</p>
-          <p className="text-2xl font-bold text-yellow-600">{stats.pendingReplies}</p>
+          <p className="text-sm text-gray-500 dark:text-slate-400">Pending Replies</p>
+          <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{stats.pendingReplies}</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <div className="card">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">My Tickets ({myTickets.length})</h2>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-4">My Tickets ({myTickets.length})</h2>
           
           {myTickets.length === 0 ? (
-            <p className="text-gray-500 text-sm">No tickets assigned to you yet.</p>
+            <p className="text-gray-500 dark:text-slate-400 text-sm">No tickets assigned to you yet.</p>
           ) : (
             <div className="space-y-3 max-h-[500px] overflow-y-auto">
               {myTickets.slice(0, 10).map((ticket) => (
                 <div 
                   key={ticket.id} 
-                  className="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
+                  className="ticket-card p-3 rounded-lg cursor-pointer transition-colors"
                   onClick={() => {
                     setSelectedTicket(ticket);
                     setShowDetail(true);
@@ -414,10 +410,10 @@ export default function AgentDashboard() {
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">
+                      <p className="text-sm font-medium text-gray-900 dark:text-slate-100 truncate">
                         #{ticket.id} - {ticket.customer_name || 'Anonymous'}
                       </p>
-                      <p className="text-sm text-gray-600 truncate">
+                      <p className="text-sm text-gray-600 dark:text-slate-300 truncate">
                         {ticket.customer_message?.substring(0, 60)}...
                       </p>
                       <div className="flex flex-wrap gap-1 mt-1">
@@ -435,13 +431,13 @@ export default function AgentDashboard() {
                         )}
                       </div>
                     </div>
-                    <span className="text-xs text-gray-500 ml-2 whitespace-nowrap">
+                    <span className="text-xs text-gray-500 dark:text-slate-400 ml-2 whitespace-nowrap">
                       {getTimeAgo(ticket.created_at)}
                     </span>
                   </div>
                   <div className="flex gap-2 mt-2">
                     <select
-                      className="text-xs border rounded px-2 py-1"
+                      className="text-xs border rounded px-2 py-1 bg-white dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200"
                       value={ticket.status}
                       onChange={(e) => {
                         e.stopPropagation();
@@ -469,7 +465,7 @@ export default function AgentDashboard() {
                 </div>
               ))}
               {myTickets.length > 10 && (
-                <p className="text-xs text-gray-500 text-center">
+                <p className="text-xs text-gray-500 dark:text-slate-400 text-center">
                   Showing 10 of {myTickets.length} tickets
                 </p>
               )}
@@ -478,16 +474,16 @@ export default function AgentDashboard() {
         </div>
 
         <div className="card">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Available Queue ({unassignedTickets.length})</h2>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-4">Available Queue ({unassignedTickets.length})</h2>
           
           {unassignedTickets.length === 0 ? (
-            <p className="text-gray-500 text-sm">No unassigned tickets in the queue.</p>
+            <p className="text-gray-500 dark:text-slate-400 text-sm">No unassigned tickets in the queue.</p>
           ) : (
             <div className="space-y-3 max-h-[500px] overflow-y-auto">
               {unassignedTickets.slice(0, 10).map((ticket) => (
                 <div 
                   key={ticket.id} 
-                  className="p-3 bg-yellow-50 rounded-lg hover:bg-yellow-100 transition-colors cursor-pointer border border-yellow-200"
+                  className="queue-card p-3 rounded-lg cursor-pointer transition-colors border"
                   onClick={() => {
                     setSelectedTicket(ticket);
                     setShowDetail(true);
@@ -496,10 +492,10 @@ export default function AgentDashboard() {
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">
+                      <p className="text-sm font-medium text-gray-900 dark:text-slate-100 truncate">
                         #{ticket.id} - {ticket.customer_name || 'Anonymous'}
                       </p>
-                      <p className="text-sm text-gray-600 truncate">
+                      <p className="text-sm text-gray-600 dark:text-slate-300 truncate">
                         {ticket.customer_message?.substring(0, 60)}...
                       </p>
                       <div className="flex flex-wrap gap-1 mt-1">
@@ -514,7 +510,7 @@ export default function AgentDashboard() {
                         )}
                       </div>
                     </div>
-                    <span className="text-xs text-gray-500 ml-2 whitespace-nowrap">
+                    <span className="text-xs text-gray-500 dark:text-slate-400 ml-2 whitespace-nowrap">
                       {getTimeAgo(ticket.created_at)}
                     </span>
                   </div>
@@ -530,7 +526,7 @@ export default function AgentDashboard() {
                 </div>
               ))}
               {unassignedTickets.length > 10 && (
-                <p className="text-xs text-gray-500 text-center">
+                <p className="text-xs text-gray-500 dark:text-slate-400 text-center">
                   Showing 10 of {unassignedTickets.length} tickets
                 </p>
               )}
@@ -539,27 +535,27 @@ export default function AgentDashboard() {
         </div>
       </div>
 
-      {/* Ticket Detail Modal - Keep existing code */}
+      {/* Ticket Detail Modal - Fixed for dark mode */}
       {showDetail && selectedTicket && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-          <div className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-white dark:bg-slate-800 rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex items-start justify-between mb-4">
                 <div>
-                  <h2 className="text-xl font-bold text-gray-900">
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-slate-100">
                     Ticket #{selectedTicket.id}
                   </h2>
                   <div className="flex items-center gap-2 mt-1 flex-wrap">
-                    <span className="text-sm text-gray-600">{selectedTicket.customer_name || 'Anonymous'}</span>
-                    <span className="text-sm text-gray-400">•</span>
-                    <span className="text-sm text-gray-600">{selectedTicket.customer_email || 'No email'}</span>
-                    <span className="text-xs text-gray-400 ml-2">
+                    <span className="text-sm text-gray-600 dark:text-slate-300">{selectedTicket.customer_name || 'Anonymous'}</span>
+                    <span className="text-sm text-gray-400 dark:text-slate-500">•</span>
+                    <span className="text-sm text-gray-600 dark:text-slate-300">{selectedTicket.customer_email || 'No email'}</span>
+                    <span className="text-xs text-gray-400 dark:text-slate-500 ml-2">
                       ({getTimeAgo(selectedTicket.created_at)})
                     </span>
                   </div>
                 </div>
                 <button
-                  className="text-gray-400 hover:text-gray-600 text-2xl"
+                  className="text-gray-400 hover:text-gray-600 dark:text-slate-400 dark:hover:text-slate-200 text-2xl"
                   onClick={() => setShowDetail(false)}
                 >
                   ×
@@ -567,206 +563,51 @@ export default function AgentDashboard() {
               </div>
               
               <div className="space-y-4">
-                {/* Message */}
                 <div>
-                  <p className="text-sm text-gray-500">Message</p>
-                  <p className="text-gray-700 bg-gray-50 p-3 rounded-lg">
+                  <p className="text-sm text-gray-500 dark:text-slate-400">Message</p>
+                  <p className="text-gray-700 dark:text-slate-200 bg-gray-50 dark:bg-slate-700 p-3 rounded-lg">
                     {selectedTicket.customer_message || 'No message'}
                   </p>
                 </div>
                 
-                {/* AI Analysis Grid */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div>
-                    <p className="text-sm text-gray-500">Intent</p>
+                    <p className="text-sm text-gray-500 dark:text-slate-400">Intent</p>
                     <span className={`badge ${getBadgeColor('intent', selectedTicket.intent)}`}>
                       {selectedTicket.intent || 'unknown'}
                     </span>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500">Sentiment</p>
+                    <p className="text-sm text-gray-500 dark:text-slate-400">Sentiment</p>
                     <span className={`badge ${getBadgeColor('sentiment', selectedTicket.sentiment)}`}>
                       {selectedTicket.sentiment || 'neutral'}
                     </span>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500">Priority</p>
+                    <p className="text-sm text-gray-500 dark:text-slate-400">Priority</p>
                     <span className={`badge ${getBadgeColor('priority', selectedTicket.priority)}`}>
                       {selectedTicket.priority || 'low'}
                     </span>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500">Escalate</p>
+                    <p className="text-sm text-gray-500 dark:text-slate-400">Escalate</p>
                     <span className={`badge ${getBadgeColor('escalate', selectedTicket.escalate)}`}>
                       {selectedTicket.escalate ? 'Yes' : 'No'}
                     </span>
                   </div>
                 </div>
 
-                {/* Language Detection */}
-                {ticketLanguage && (
-                  <div>
-                    <p className="text-sm text-gray-500">Language</p>
-                    <span className="badge badge-blue">
-                      {ticketLanguage.language} ({ticketLanguage.confidence}% confidence)
-                    </span>
-                  </div>
-                )}
-
-                {/* Resolution Time Prediction */}
-                {resolutionTime && (
-                  <div>
-                    <p className="text-sm text-gray-500">Estimated Resolution Time</p>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="badge badge-blue">
-                        {resolutionTime.estimated_hours} hours
-                      </span>
-                      <span className="text-xs text-gray-500">
-                        ({resolutionTime.minimum_hours} - {resolutionTime.maximum_hours} hours)
-                      </span>
-                      <span className="text-xs text-gray-500">
-                        Confidence: {resolutionTime.confidence}
-                      </span>
-                    </div>
-                    <p className="text-xs text-gray-500 mt-1">{resolutionTime.reasoning}</p>
-                  </div>
-                )}
-
-                {/* Churn Risk */}
-                {churnRisk && (
-                  <div>
-                    <p className="text-sm text-gray-500">Churn Risk</p>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className={`badge ${
-                        churnRisk.risk_level === 'critical' ? 'badge-red' :
-                        churnRisk.risk_level === 'high' ? 'badge-orange' :
-                        churnRisk.risk_level === 'medium' ? 'badge-yellow' :
-                        'badge-green'
-                      }`}>
-                        {churnRisk.risk_level.toUpperCase()} ({churnRisk.churn_risk}%)
-                      </span>
-                    </div>
-                    <p className="text-xs text-gray-500 mt-1">{churnRisk.recommendation}</p>
-                    {churnRisk.factors && churnRisk.factors.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        {churnRisk.factors.map((factor, idx) => (
-                          <span key={idx} className="badge badge-gray text-xs">{factor}</span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Follow-up Detection */}
-                {followupInfo && (
-                  <div>
-                    <p className="text-sm text-gray-500">Follow-up Required</p>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className={`badge ${followupInfo.needs_followup ? 'badge-yellow' : 'badge-green'}`}>
-                        {followupInfo.needs_followup ? 'Yes' : 'No'}
-                      </span>
-                      {followupInfo.needs_followup && (
-                        <>
-                          <span className="text-xs text-gray-500">
-                            Timeline: {followupInfo.suggested_timeline}
-                          </span>
-                        </>
-                      )}
-                    </div>
-                    <p className="text-xs text-gray-500 mt-1">{followupInfo.reasoning}</p>
-                    {followupInfo.needs_followup && followupInfo.followup_question && (
-                      <p className="text-xs text-blue-600 mt-1">
-                        Suggested follow-up: "{followupInfo.followup_question}"
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                {/* Quality Score */}
-                {qualityScore && (
-                  <div>
-                    <p className="text-sm text-gray-500">AI Response Quality</p>
-                    <div className="flex items-center gap-4 flex-wrap">
-                      <span className="text-lg font-bold text-primary-600">
-                        {qualityScore.overall_score}/10
-                      </span>
-                      <div className="flex flex-wrap gap-2">
-                        <span className="badge badge-green">Clarity: {qualityScore.clarity}/10</span>
-                        <span className="badge badge-blue">Empathy: {qualityScore.empathy}/10</span>
-                        <span className="badge badge-purple">Completeness: {qualityScore.completeness}/10</span>
-                      </div>
-                    </div>
-                    <p className="text-xs text-gray-500 mt-1">{qualityScore.recommendation}</p>
-                    {qualityScore.strengths && qualityScore.strengths.length > 0 && (
-                      <div className="mt-1">
-                        <span className="text-xs text-green-600">Strengths: {qualityScore.strengths.join(', ')}</span>
-                      </div>
-                    )}
-                    {qualityScore.improvements && qualityScore.improvements.length > 0 && (
-                      <div className="mt-1">
-                        <span className="text-xs text-orange-600">Improvements: {qualityScore.improvements.join(', ')}</span>
-                      </div>
-                    )}
-                  </div>
-                )}
-
                 {/* AI Response */}
                 <div>
-                  <p className="text-sm text-gray-500">AI Response</p>
-                  <div className="bg-blue-50 p-3 rounded-lg">
-                    <p className="text-gray-700">{selectedTicket.response || 'No response generated'}</p>
+                  <p className="text-sm text-gray-500 dark:text-slate-400">AI Response</p>
+                  <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
+                    <p className="text-gray-700 dark:text-slate-200">{selectedTicket.response || 'No response generated'}</p>
                   </div>
                 </div>
 
-                {/* Reply Options */}
-                {replyOptions.length > 0 && (
-                  <div className="pt-2">
-                    <p className="text-sm font-medium text-gray-700 mb-2">Reply Options (Click to use)</p>
-                    <div className="space-y-2">
-                      {replyOptions.map((option, index) => (
-                        <div
-                          key={index}
-                          className="p-3 bg-gray-50 rounded-lg border border-gray-200 hover:border-primary-300 cursor-pointer transition-colors"
-                          onClick={() => {
-                            setReplyMessage(option.reply);
-                          }}
-                        >
-                          <div className="flex items-center justify-between flex-wrap">
-                            <span className={`badge ${
-                              option.tone === 'empathetic' ? 'badge-green' :
-                              option.tone === 'direct_professional' ? 'badge-blue' :
-                              'badge-purple'
-                            }`}>
-                              {option.tone}
-                            </span>
-                            <span className="text-xs text-gray-500">{option.reasoning}</span>
-                          </div>
-                          <p className="text-sm text-gray-700 mt-1">{option.reply}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Knowledge Base */}
-                {kbArticles.length > 0 && (
-                  <div>
-                    <p className="text-sm font-medium text-gray-700 mb-2">Knowledge Base Articles</p>
-                    <div className="space-y-1">
-                      {kbArticles.map((article, index) => (
-                        <div key={index} className="p-2 bg-gray-50 rounded-lg text-sm">
-                          <span className="font-medium">{article.title}</span>
-                          <p className="text-gray-600 text-xs">{article.content?.substring(0, 100)}...</p>
-                          <span className="badge badge-gray text-xs">{article.category}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
                 {/* Assign in Modal */}
                 <div>
-                  <p className="text-sm text-gray-500 mb-1">Assign to Agent</p>
+                  <p className="text-sm text-gray-500 dark:text-slate-400 mb-1">Assign to Agent</p>
                   <select
                     className="input max-w-[200px]"
                     value={selectedTicket.assigned_to || ''}
@@ -783,7 +624,6 @@ export default function AgentDashboard() {
                   </select>
                 </div>
 
-                {/* Customer Context */}
                 {selectedTicket.customer_email && (
                   <div className="pt-2 flex flex-wrap gap-2">
                     <button
@@ -804,18 +644,18 @@ export default function AgentDashboard() {
 
                 {showHistory && customerHistory.length > 0 && (
                   <div>
-                    <h4 className="text-sm font-medium text-gray-700 mb-2">Previous Tickets</h4>
+                    <h4 className="text-sm font-medium text-gray-700 dark:text-slate-200 mb-2">Previous Tickets</h4>
                     <div className="space-y-2 max-h-48 overflow-y-auto">
                       {customerHistory.map((ticket) => (
-                        <div key={ticket.id} className="p-2 bg-gray-50 rounded-lg text-sm">
+                        <div key={ticket.id} className="p-2 bg-gray-50 dark:bg-slate-700 rounded-lg text-sm">
                           <div className="flex justify-between">
-                            <span className="font-medium">#{ticket.id}</span>
+                            <span className="font-medium text-gray-900 dark:text-slate-100">#{ticket.id}</span>
                             <span className={`badge ${getBadgeColor('status', ticket.status)}`}>
                               {ticket.status}
                             </span>
                           </div>
-                          <p className="text-gray-600 truncate">{ticket.customer_message}</p>
-                          <span className="text-xs text-gray-400">
+                          <p className="text-gray-600 dark:text-slate-300 truncate">{ticket.customer_message}</p>
+                          <span className="text-xs text-gray-400 dark:text-slate-500">
                             {new Date(ticket.created_at).toLocaleDateString()}
                           </span>
                         </div>
@@ -824,9 +664,8 @@ export default function AgentDashboard() {
                   </div>
                 )}
 
-                {/* Reply Section */}
-                <div className="pt-4 border-t border-gray-200">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Reply</label>
+                <div className="pt-4 border-t border-gray-200 dark:border-slate-700">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-slate-200 mb-2">Reply</label>
                   <textarea
                     className="input min-h-[80px]"
                     placeholder="Type your reply..."
@@ -850,9 +689,8 @@ export default function AgentDashboard() {
                   </div>
                 </div>
 
-                {/* Status Update */}
-                <div className="pt-4 border-t border-gray-200">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Update Status</label>
+                <div className="pt-4 border-t border-gray-200 dark:border-slate-700">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-slate-200 mb-2">Update Status</label>
                   <div className="flex flex-wrap gap-2">
                     {['new', 'in_progress', 'resolved', 'closed'].map((status) => (
                       <button
@@ -868,73 +706,6 @@ export default function AgentDashboard() {
                     ))}
                   </div>
                 </div>
-
-                {/* Feedback Section */}
-                {selectedTicket.status === 'resolved' && !feedbackAnalysis && (
-                  <div className="pt-4 border-t border-gray-200">
-                    <button
-                      className="btn btn-secondary btn-sm"
-                      onClick={() => setShowFeedbackForm(!showFeedbackForm)}
-                    >
-                      Add Customer Feedback
-                    </button>
-                    
-                    {showFeedbackForm && (
-                      <div className="mt-2">
-                        <textarea
-                          className="input min-h-[60px]"
-                          placeholder="Enter customer feedback..."
-                          value={feedbackText}
-                          onChange={(e) => setFeedbackText(e.target.value)}
-                        />
-                        <button
-                          className="btn btn-primary btn-sm mt-2"
-                          onClick={() => submitFeedback(selectedTicket.id)}
-                          disabled={analyzing || !feedbackText.trim()}
-                        >
-                          {analyzing ? 'Analyzing...' : 'Analyze Feedback'}
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Feedback Analysis Results */}
-                {feedbackAnalysis && (
-                  <div className="pt-4 border-t border-gray-200">
-                    <p className="text-sm font-medium text-gray-700 mb-2">Feedback Analysis</p>
-                    <div className="p-3 bg-gray-50 rounded-lg space-y-2">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm font-medium">Sentiment:</span>
-                        <span className={`badge ${feedbackAnalysis.sentiment === 'positive' ? 'badge-green' : feedbackAnalysis.sentiment === 'negative' ? 'badge-red' : 'badge-yellow'}`}>
-                          {feedbackAnalysis.sentiment}
-                        </span>
-                        <span className="text-sm font-medium ml-4">Satisfaction:</span>
-                        <span className="badge badge-blue">{feedbackAnalysis.satisfaction_score}/10</span>
-                      </div>
-                      {feedbackAnalysis.key_themes && feedbackAnalysis.key_themes.length > 0 && (
-                        <div>
-                          <p className="text-sm font-medium">Key Themes:</p>
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {feedbackAnalysis.key_themes.map((theme, idx) => (
-                              <span key={idx} className="badge badge-gray">{theme}</span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      {feedbackAnalysis.suggestions && feedbackAnalysis.suggestions.length > 0 && (
-                        <div>
-                          <p className="text-sm font-medium">Suggestions:</p>
-                          <ul className="text-sm text-gray-600 list-disc pl-4">
-                            {feedbackAnalysis.suggestions.map((suggestion, idx) => (
-                              <li key={idx}>{suggestion}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
           </div>

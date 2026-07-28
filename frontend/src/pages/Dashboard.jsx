@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import apiClient from '../api/client';
+import TicketCharts from '../components/TicketCharts';
 
 export default function Dashboard() {
   const [stats, setStats] = useState(null);
@@ -35,7 +36,6 @@ export default function Dashboard() {
 
       const ticketsResponse = await apiClient.get('/support/tickets?limit=5');
       
-      // Handle different response formats
       let ticketsData = [];
       if (ticketsResponse.data) {
         if (ticketsResponse.data.data && Array.isArray(ticketsResponse.data.data)) {
@@ -190,7 +190,7 @@ export default function Dashboard() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-gray-500">Loading dashboard...</div>
+        <div className="text-gray-500 dark:text-slate-400">Loading dashboard...</div>
       </div>
     );
   }
@@ -198,61 +198,67 @@ export default function Dashboard() {
   return (
     <div>
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-gray-600 mt-1">AI-powered support overview and analytics</p>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-slate-100">Dashboard</h1>
+        <p className="text-gray-600 dark:text-slate-400 mt-1">AI-powered support overview and analytics</p>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <div className="card">
-          <p className="text-sm text-gray-500">Total Tickets</p>
-          <p className="text-2xl font-bold text-gray-900">{stats?.total_tickets || 0}</p>
+          <p className="text-sm text-gray-500 dark:text-slate-400">Total Tickets</p>
+          <p className="text-2xl font-bold text-gray-900 dark:text-slate-100">{stats?.total_tickets || 0}</p>
         </div>
         <div className="card">
-          <p className="text-sm text-gray-500">Open Tickets</p>
-          <p className="text-2xl font-bold text-yellow-600">{stats?.status_breakdown?.new || 0}</p>
+          <p className="text-sm text-gray-500 dark:text-slate-400">Open Tickets</p>
+          <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{stats?.status_breakdown?.new || 0}</p>
         </div>
         <div className="card">
-          <p className="text-sm text-gray-500">Escalated</p>
-          <p className="text-2xl font-bold text-red-600">{stats?.escalated_count || 0}</p>
+          <p className="text-sm text-gray-500 dark:text-slate-400">Escalated</p>
+          <p className="text-2xl font-bold text-red-600 dark:text-red-400">{stats?.escalated_count || 0}</p>
         </div>
         <div className="card">
-          <p className="text-sm text-gray-500">Escalation Rate</p>
-          <p className="text-2xl font-bold text-primary-600">{stats?.escalation_rate || 0}%</p>
+          <p className="text-sm text-gray-500 dark:text-slate-400">Escalation Rate</p>
+          <p className="text-2xl font-bold text-primary-600 dark:text-primary-400">{stats?.escalation_rate || 0}%</p>
         </div>
+      </div>
+
+      {/* Analytics Dashboard */}
+      <div className="card mb-8">
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-4">Analytics Dashboard</h2>
+        <TicketCharts />
       </div>
 
       {sentimentTrends && (
         <div className="card mb-8">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Sentiment Distribution</h2>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-4">Sentiment Distribution</h2>
           <div className="grid grid-cols-3 gap-4">
-            <div className="text-center p-4 bg-green-50 rounded-lg">
-              <p className="text-sm font-medium text-gray-600">Positive</p>
-              <p className="text-2xl font-bold text-green-600">
+            <div className="text-center p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
+              <p className="text-sm font-medium text-gray-600 dark:text-slate-300">Positive</p>
+              <p className="text-2xl font-bold text-green-600 dark:text-green-400">
                 {sentimentTrends?.distribution?.positive || 0}
               </p>
             </div>
-            <div className="text-center p-4 bg-yellow-50 rounded-lg">
-              <p className="text-sm font-medium text-gray-600">Neutral</p>
-              <p className="text-2xl font-bold text-yellow-600">
+            <div className="text-center p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
+              <p className="text-sm font-medium text-gray-600 dark:text-slate-300">Neutral</p>
+              <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
                 {sentimentTrends?.distribution?.neutral || 0}
               </p>
             </div>
-            <div className="text-center p-4 bg-red-50 rounded-lg">
-              <p className="text-sm font-medium text-gray-600">Negative</p>
-              <p className="text-2xl font-bold text-red-600">
+            <div className="text-center p-4 bg-red-50 dark:bg-red-900/20 rounded-lg">
+              <p className="text-sm font-medium text-gray-600 dark:text-slate-300">Negative</p>
+              <p className="text-2xl font-bold text-red-600 dark:text-red-400">
                 {sentimentTrends?.distribution?.negative || 0}
               </p>
             </div>
           </div>
-          <p className="text-xs text-gray-500 text-center mt-2">{sentimentTrends?.period}</p>
+          <p className="text-xs text-gray-500 dark:text-slate-400 text-center mt-2">{sentimentTrends?.period}</p>
         </div>
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <div className="card">
           <div className="mb-2">
-            <h2 className="text-lg font-semibold text-gray-900">AI Demo Tool</h2>
-            <p className="text-xs text-gray-500">Test the AI analysis before creating tickets. Analysis is automatically applied when tickets are created.</p>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100">AI Demo Tool</h2>
+            <p className="text-xs text-gray-500 dark:text-slate-400">Test the AI analysis before creating tickets. Analysis is automatically applied when tickets are created.</p>
           </div>
           
           <div className="space-y-4">
@@ -290,12 +296,12 @@ export default function Dashboard() {
             {analyzing && (
               <div className="flex items-center justify-center p-4">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
-                <span className="ml-2 text-gray-600">Analyzing message...</span>
+                <span className="ml-2 text-gray-600 dark:text-slate-300">Analyzing message...</span>
               </div>
             )}
 
             {analysisResult && (
-              <div className="mt-4 p-4 bg-gray-50 rounded-lg space-y-3">
+              <div className="mt-4 p-4 bg-gray-50 dark:bg-slate-700 rounded-lg space-y-3">
                 <div className="flex flex-wrap gap-2">
                   <span className={`badge ${getBadgeColor('sentiment', analysisResult.sentiment)}`}>
                     {analysisResult.sentiment}
@@ -307,43 +313,43 @@ export default function Dashboard() {
                     {analysisResult.escalate ? 'Escalate' : 'Auto-respond'}
                   </span>
                 </div>
-                <p className="text-sm font-medium text-gray-700">Intent: {analysisResult.intent}</p>
+                <p className="text-sm font-medium text-gray-700 dark:text-slate-200">Intent: {analysisResult.intent}</p>
                 
                 {analysisResult.sentiment_explanation && (
-                  <p className="text-sm text-gray-600">
+                  <p className="text-sm text-gray-600 dark:text-slate-300">
                     <span className="font-medium">Sentiment reason:</span> {analysisResult.sentiment_explanation}
                   </p>
                 )}
                 
                 {analysisResult.priority_reasoning && (
-                  <p className="text-sm text-gray-600">
+                  <p className="text-sm text-gray-600 dark:text-slate-300">
                     <span className="font-medium">Priority reason:</span> {analysisResult.priority_reasoning}
                   </p>
                 )}
                 
                 {analysisResult.escalate_reasoning && (
-                  <p className="text-sm text-gray-600">
+                  <p className="text-sm text-gray-600 dark:text-slate-300">
                     <span className="font-medium">Escalation reason:</span> {analysisResult.escalate_reasoning}
                   </p>
                 )}
                 
                 {analysisResult.ticket_summary && (
-                  <div className="p-2 bg-purple-50 rounded border border-purple-200">
-                    <p className="text-sm text-purple-700">
+                  <div className="p-2 bg-purple-50 dark:bg-purple-900/20 rounded border border-purple-200 dark:border-purple-800">
+                    <p className="text-sm text-purple-700 dark:text-purple-300">
                       <span className="font-medium">Summary:</span> {analysisResult.ticket_summary}
                     </p>
                   </div>
                 )}
                 
                 {analysisResult.assigned_agent && (
-                  <p className="text-sm text-gray-600">
+                  <p className="text-sm text-gray-600 dark:text-slate-300">
                     <span className="font-medium">Assigned to:</span> {analysisResult.assigned_agent}
                   </p>
                 )}
                 
                 {analysisResult.recommended_products && analysisResult.recommended_products.length > 0 && (
                   <div className="mt-2">
-                    <p className="text-sm font-medium text-gray-700">Recommended Products:</p>
+                    <p className="text-sm font-medium text-gray-700 dark:text-slate-200">Recommended Products:</p>
                     <div className="flex flex-wrap gap-2 mt-1">
                       {analysisResult.recommended_products.map((product, index) => (
                         <span key={index} className="badge badge-blue">
@@ -354,11 +360,11 @@ export default function Dashboard() {
                   </div>
                 )}
                 
-                <div className="p-3 bg-white rounded border border-gray-200">
-                  <p className="text-sm text-gray-700">{analysisResult.response}</p>
+                <div className="p-3 bg-white dark:bg-slate-600 rounded border border-gray-200 dark:border-slate-500">
+                  <p className="text-sm text-gray-700 dark:text-slate-200">{analysisResult.response}</p>
                 </div>
                 
-                <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-200">
+                <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-200 dark:border-slate-600">
                   <button
                     className="btn btn-primary flex-1"
                     onClick={handleSaveTicket}
@@ -369,8 +375,8 @@ export default function Dashboard() {
                 </div>
                 
                 {saveSuccess && (
-                  <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                    <p className="text-green-700 text-sm font-medium">Ticket saved successfully!</p>
+                  <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                    <p className="text-green-700 dark:text-green-300 text-sm font-medium">Ticket saved successfully!</p>
                   </div>
                 )}
               </div>
@@ -380,24 +386,24 @@ export default function Dashboard() {
 
         <div className="card">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">Recent Tickets</h2>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100">Recent Tickets</h2>
             <button 
               onClick={fetchDashboardData}
-              className="text-sm text-primary-600 hover:text-primary-700"
+              className="text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300"
             >
               Refresh
             </button>
           </div>
 
           {recentTickets.length === 0 ? (
-            <p className="text-gray-500 text-sm">No tickets found</p>
+            <p className="text-gray-500 dark:text-slate-400 text-sm">No tickets found</p>
           ) : (
             <div className="space-y-3 max-h-[400px] overflow-y-auto">
               {recentTickets.map((ticket) => (
-                <div key={ticket.id} className="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                <div key={ticket.id} className="p-3 bg-gray-50 dark:bg-slate-700 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-600 transition-colors">
                   <div className="flex items-start justify-between">
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">
+                      <p className="text-sm font-medium text-gray-900 dark:text-slate-100 truncate">
                         {ticket.ticket_summary || ticket.customer_message?.substring(0, 60)}...
                       </p>
                       <div className="flex flex-wrap gap-1 mt-1">
@@ -418,7 +424,7 @@ export default function Dashboard() {
                         )}
                       </div>
                     </div>
-                    <span className="text-xs text-gray-500 ml-2 whitespace-nowrap">
+                    <span className="text-xs text-gray-500 dark:text-slate-400 ml-2 whitespace-nowrap">
                       {new Date(ticket.created_at).toLocaleDateString()}
                     </span>
                   </div>
@@ -431,7 +437,7 @@ export default function Dashboard() {
 
       <div className="card mt-8">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-gray-900">AI Ticket Summary</h2>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100">AI Ticket Summary</h2>
           <button
             className="btn btn-primary btn-sm"
             onClick={fetchAiSummary}
@@ -442,16 +448,16 @@ export default function Dashboard() {
 
         {showSummary && aiSummary ? (
           <div className="space-y-4">
-            <div className="flex items-center gap-4 text-sm text-gray-600">
+            <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-slate-300">
               <span>{aiSummary.period}</span>
               <span>{aiSummary.total_tickets} tickets analyzed</span>
             </div>
-            <div className="p-4 bg-gray-50 rounded-lg whitespace-pre-wrap">
-              <p className="text-gray-700">{aiSummary.summary}</p>
+            <div className="p-4 bg-gray-50 dark:bg-slate-700 rounded-lg whitespace-pre-wrap">
+              <p className="text-gray-700 dark:text-slate-200">{aiSummary.summary}</p>
             </div>
           </div>
         ) : (
-          <p className="text-gray-500 text-sm">
+          <p className="text-gray-500 dark:text-slate-400 text-sm">
             Click "Generate Summary" to get an AI-powered summary of recent tickets.
           </p>
         )}
@@ -459,12 +465,12 @@ export default function Dashboard() {
 
       {stats?.intent_breakdown && (
         <div className="card mt-8">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Intent Distribution</h2>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100 mb-4">Intent Distribution</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
             {Object.entries(stats.intent_breakdown).map(([intent, count]) => (
-              <div key={intent} className="text-center p-3 bg-gray-50 rounded-lg">
-                <p className="text-sm font-medium text-gray-600">{intent}</p>
-                <p className="text-xl font-bold text-gray-900">{count}</p>
+              <div key={intent} className="text-center p-3 bg-gray-50 dark:bg-slate-700 rounded-lg">
+                <p className="text-sm font-medium text-gray-600 dark:text-slate-300">{intent}</p>
+                <p className="text-xl font-bold text-gray-900 dark:text-slate-100">{count}</p>
               </div>
             ))}
           </div>

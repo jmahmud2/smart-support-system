@@ -4,75 +4,121 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --background: 255 255 255;
+    --foreground: 15 23 42;
+    --card: 255 255 255;
+    --card-foreground: 15 23 42;
+    --border: 229 231 235;
+  }
+
+  .dark {
+    --background: 15 23 42;
+    --foreground: 248 250 252;
+    --card: 30 41 59;
+    --card-foreground: 248 250 252;
+    --border: 51 65 85;
   }
 
   body {
-    @apply bg-gray-50 text-gray-900 antialiased;
+    @apply bg-gray-50 text-gray-900 antialiased dark:bg-slate-900 dark:text-slate-50;
   }
 }
 
 @layer components {
   .card {
-    @apply bg-white rounded-lg shadow-md p-4 sm:p-6;
+    @apply bg-white rounded-lg shadow-md p-4 sm:p-6 dark:bg-slate-800 dark:border dark:border-slate-700;
   }
   
   .badge {
     @apply px-2 py-1 text-xs font-medium rounded-full inline-flex items-center;
   }
   .badge-green {
-    @apply bg-green-100 text-green-800;
+    @apply bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200;
   }
   .badge-yellow {
-    @apply bg-yellow-100 text-yellow-800;
+    @apply bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200;
   }
   .badge-red {
-    @apply bg-red-100 text-red-800;
+    @apply bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200;
   }
   .badge-gray {
-    @apply bg-gray-100 text-gray-800;
+    @apply bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300;
   }
   .badge-blue {
-    @apply bg-blue-100 text-blue-800;
+    @apply bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200;
   }
   .badge-purple {
-    @apply bg-purple-100 text-purple-800;
+    @apply bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200;
   }
   .badge-orange {
-    @apply bg-orange-100 text-orange-800;
+    @apply bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200;
   }
   .badge-cyan {
-    @apply bg-cyan-100 text-cyan-800;
+    @apply bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200;
   }
   
   .btn {
     @apply px-4 py-2 rounded-lg font-medium transition-colors duration-200;
   }
   .btn-primary {
-    @apply bg-primary-600 text-white hover:bg-primary-700 focus:ring-2 focus:ring-primary-500 focus:ring-offset-2;
+    @apply bg-primary-600 text-white hover:bg-primary-700 focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 dark:focus:ring-offset-slate-800;
   }
   .btn-secondary {
-    @apply bg-gray-200 text-gray-700 hover:bg-gray-300;
+    @apply bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600;
   }
   .btn-danger {
-    @apply bg-red-600 text-white hover:bg-red-700;
+    @apply bg-red-600 text-white hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-800;
   }
   .btn-sm {
     @apply px-3 py-1.5 text-sm;
   }
   
   .input {
-    @apply w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500;
+    @apply w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 dark:focus:border-primary-400;
   }
-}
 
-/* Loading Spinner */
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
+  .nav-link {
+    @apply px-4 py-2 rounded-lg text-sm font-medium transition-colors;
   }
-}
-.animate-spin {
-  animation: spin 1s linear infinite;
+  .nav-link-active {
+    @apply bg-primary-50 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400;
+  }
+  .nav-link-inactive {
+    @apply text-gray-700 hover:bg-gray-100 dark:text-slate-300 dark:hover:bg-slate-700;
+  }
+
+  /* Dark mode fixes for Agent Dashboard */
+  .ticket-card {
+    @apply bg-gray-50 hover:bg-gray-100 dark:bg-slate-700 dark:hover:bg-slate-600;
+  }
+  .queue-card {
+    @apply bg-yellow-50 hover:bg-yellow-100 border-yellow-200 dark:bg-yellow-900/20 dark:hover:bg-yellow-900/30 dark:border-yellow-700;
+  }
+  .modal-content {
+    @apply bg-white dark:bg-slate-800;
+  }
+  .modal-header {
+    @apply border-b border-gray-200 dark:border-slate-700;
+  }
+  .modal-footer {
+    @apply border-t border-gray-200 dark:border-slate-700;
+  }
+  .text-muted {
+    @apply text-gray-500 dark:text-slate-400;
+  }
+  .text-primary-dark {
+    @apply text-gray-900 dark:text-slate-100;
+  }
+  .text-secondary-dark {
+    @apply text-gray-700 dark:text-slate-200;
+  }
+  .bg-dark {
+    @apply bg-gray-50 dark:bg-slate-700;
+  }
+  .bg-dark-hover {
+    @apply hover:bg-gray-100 dark:hover:bg-slate-600;
+  }
+  .border-dark {
+    @apply border-gray-200 dark:border-slate-700;
+  }
 }
