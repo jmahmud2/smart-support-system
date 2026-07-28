@@ -19,7 +19,7 @@ from ..schemas.support import (
     SupportAnalysisResponse
 )
 from ..services.email import send_reply_email, send_ticket_created_email
-from .auth import get_current_user, require_role
+from .auth import get_current_user
 from ..config import Config
 
 router = APIRouter()
@@ -31,14 +31,34 @@ class ReplyRequest(BaseModel):
 
 @router.get("/agent/me")
 async def get_current_agent(
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
     """Get the current agent's information."""
-    return {
-        "name": current_user.get("name", "Sarah Johnson"),
-        "role": current_user.get("role", "agent"),
-        "email": current_user.get("email", "sarah.johnson@company.com")
-    }
+    try:
+        name = current_user.get("name")
+        email = current_user.get("email", "")
+        
+        if not name and email:
+            from ..database.models import User
+            user = db.query(User).filter(User.email == email).first()
+            if user:
+                name = user.name
+        
+        return {
+            "name": name or "Agent",
+            "role": current_user.get("role", "agent"),
+            "email": email
+        }
+    except Exception as e:
+        from ..utils.logger import get_logger
+        logger = get_logger(__name__)
+        logger.error(f"Error getting agent info: {e}")
+        return {
+            "name": "Agent",
+            "role": "agent",
+            "email": ""
+        }
 
 
 @router.post("/analyze", response_model=SupportAnalysisResponse)
@@ -125,7 +145,6 @@ async def list_tickets(
     """List support tickets with optional filters."""
     tickets, total = SupportController.get_tickets_with_count(db, status, intent, limit, offset)
     
-    # Return consistent structure
     return {
         "data": tickets,
         "pagination": {
@@ -436,16 +455,17 @@ async def get_kb_articles(
     ticket_id: int,
     db: Session = Depends(get_db)
 ):
-    """Get relevant knowledge base articles for a ticket."""
+    """Get relevant knowledge base articles for a ticket using RAG."""
     from ..services.ai_features import AIFeaturesService
     ticket = db.query(SupportTicketModel).filter(SupportTicketModel.id == ticket_id).first()
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
     
-    articles = AIFeaturesService.get_knowledge_base_articles(
+    articles = AIFeaturesService.get_knowledge_base_articles_rag(
         db,
         ticket.customer_message,
-        ticket.intent or "general"
+        ticket.intent or "general",
+        n_results=5
     )
     return {"ticket_id": ticket.id, "articles": articles}
 
@@ -557,3 +577,26 @@ async def get_agents(
     from ..database.models import Agent
     agents = db.query(Agent).filter(Agent.active == True).all()
     return agents
+
+
+@router.post("/rag/search")
+async def search_knowledge_base(
+    request: dict,
+    db: Session = Depends(get_db)
+):
+    """Search the knowledge base using RAG."""
+    from ..services.ai_features import AIFeaturesService
+    
+    query = request.get("query", "")
+    intent = request.get("intent", "general")
+    
+    if not query:
+        raise HTTPException(status_code=400, detail="Query is required")
+    
+    articles = AIFeaturesService.get_knowledge_base_articles_rag(
+        db,
+        query,
+        intent,
+        n_results=5
+    )
+    return {"query": query, "articles": articles}

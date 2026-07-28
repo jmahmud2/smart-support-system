@@ -8,8 +8,13 @@ from typing import List, Dict, Optional
 from sqlalchemy.orm import Session
 
 from ..workflow.llm import call_llm
-from ..database.models import SupportTicket, Product
+from ..database.models import SupportTicket, Product, KnowledgeBase
 from .customer_context import CustomerContextService
+from ..services.vector_db import VectorDatabase
+from ..services.embeddings import EmbeddingService
+from ..utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class AIFeaturesService:
@@ -55,14 +60,14 @@ class AIFeaturesService:
         
         try:
             response = call_llm(prompt)
-            # Clean response
             if response.startswith('```json'):
                 response = response.replace('```json', '').replace('```', '').strip()
             if response.startswith('```'):
                 response = response.replace('```', '').strip()
             options = json.loads(response)
             return options[:3]
-        except:
+        except Exception as e:
+            logger.error(f"Error generating reply options: {e}")
             return [
                 {"tone": "empathetic", "reply": "I understand your frustration. Let me help resolve this right away.", "reasoning": "Shows empathy"},
                 {"tone": "direct", "reply": "Here's what we can do to fix this issue. Let me explain the steps.", "reasoning": "Clear and direct"},
@@ -103,7 +108,8 @@ class AIFeaturesService:
             if response_text.startswith('```'):
                 response_text = response_text.replace('```', '').strip()
             return json.loads(response_text)
-        except:
+        except Exception as e:
+            logger.error(f"Error evaluating response: {e}")
             return {
                 "clarity": 7,
                 "empathy": 7,
@@ -115,52 +121,70 @@ class AIFeaturesService:
                 "recommendation": "Consider adding more empathy"
             }
 
-    # ============ 3. KNOWLEDGE BASE RAG ============
+    # ============ 3. KNOWLEDGE BASE RAG (WITH VECTOR SEARCH) ============
     
     @staticmethod
-    def get_knowledge_base_articles(message: str, intent: str) -> List[dict]:
-        """Retrieve relevant knowledge base articles using RAG."""
-        
-        # Sample knowledge base (in production, this would be a vector DB)
-        knowledge_base = [
-            {"id": "kb-001", "title": "How to Return a Product", "content": "Returns are accepted within 30 days...", "category": "refund"},
-            {"id": "kb-002", "title": "Shipping Status Check", "content": "To check your shipping status...", "category": "shipping"},
-            {"id": "kb-003", "title": "Warranty Information", "content": "All products come with 2-year warranty...", "category": "complaint"},
-            {"id": "kb-004", "title": "Product Setup Guide", "content": "Follow these steps to set up your product...", "category": "product_inquiry"},
-            {"id": "kb-005", "title": "Billing FAQ", "content": "Common billing questions answered...", "category": "refund"},
-            {"id": "kb-006", "title": "Technical Support Guide", "content": "Troubleshooting common issues...", "category": "technical"},
-            {"id": "kb-007", "title": "Account Management", "content": "How to manage your account settings...", "category": "general"},
-            {"id": "kb-008", "title": "Discount and Promotions", "content": "Information about current promotions...", "category": "general"},
-        ]
-        
-        # Filter by intent
-        matching = [a for a in knowledge_base if a["category"] == intent or intent in a["title"].lower()]
-        
-        # If no matches, return general articles
-        if not matching:
-            matching = knowledge_base[:3]
-        
-        # Use LLM to rank and select
-        prompt = f"""
-        Given this customer message, select the 3 most relevant knowledge base articles.
-        
-        Message: {message}
-        Available articles: {json.dumps(matching, indent=2)}
-        
-        Return only the article IDs as a JSON list.
-        Example: ["kb-001", "kb-004", "kb-007"]
+    def get_knowledge_base_articles_rag(db: Session, message: str, intent: str, n_results: int = 5) -> List[dict]:
         """
+        Retrieve relevant knowledge base articles using RAG (vector search).
         
+        Args:
+            db: Database session
+            message: Customer message
+            intent: Intent category
+            n_results: Number of results to return
+        
+        Returns:
+            List of relevant articles with similarity scores
+        """
         try:
-            response = call_llm(prompt).strip()
-            if response.startswith('['):
-                ids = json.loads(response)
-                selected = [a for a in matching if a["id"] in ids]
-                return selected[:3] if selected else matching[:3]
-        except:
-            pass
-        
-        return matching[:3]
+            vector_db = VectorDatabase()
+            
+            # Search for similar articles
+            results = vector_db.search(message, n_results=n_results)
+            
+            # Format results
+            articles = []
+            for result in results:
+                metadata = result.get('metadata', {})
+                articles.append({
+                    'id': result.get('id'),
+                    'title': metadata.get('title', 'Unknown'),
+                    'content': result.get('content', ''),
+                    'category': metadata.get('category', 'general'),
+                    'tags': metadata.get('tags', ''),
+                    'similarity': result.get('similarity', 0)
+                })
+            
+            # If vector search returns nothing, fallback to category filtering
+            if not articles:
+                logger.warning("Vector search returned no results, falling back to category filter")
+                fallback = db.query(KnowledgeBase).filter(
+                    KnowledgeBase.category == intent
+                ).limit(3).all()
+                
+                if not fallback:
+                    fallback = db.query(KnowledgeBase).filter(
+                        KnowledgeBase.category == "general"
+                    ).limit(3).all()
+                
+                articles = [
+                    {
+                        'id': a.id,
+                        'title': a.title,
+                        'content': a.content,
+                        'category': a.category,
+                        'tags': a.tags,
+                        'similarity': 0
+                    }
+                    for a in fallback
+                ]
+            
+            return articles
+            
+        except Exception as e:
+            logger.error(f"Error retrieving knowledge base articles with RAG: {e}")
+            return []
 
     # ============ 4. CHURN PREDICTION ============
     
@@ -197,7 +221,8 @@ class AIFeaturesService:
             if response.startswith('```'):
                 response = response.replace('```', '').strip()
             return json.loads(response)
-        except:
+        except Exception as e:
+            logger.error(f"Error predicting churn risk: {e}")
             return {
                 "churn_risk": 30,
                 "risk_level": "medium",
@@ -235,7 +260,8 @@ class AIFeaturesService:
             if response.startswith('```'):
                 response = response.replace('```', '').strip()
             return json.loads(response)
-        except:
+        except Exception as e:
+            logger.error(f"Error detecting follow-up: {e}")
             return {
                 "needs_followup": priority == "urgent" or sentiment == "negative",
                 "reasoning": "Based on priority and sentiment",
@@ -268,8 +294,9 @@ class AIFeaturesService:
             if response.startswith('```'):
                 response = response.replace('```', '').strip()
             return json.loads(response)
-        except:
-            return {"language": "English", "language_code": "en", "confidence": 90}
+        except Exception as e:
+            logger.error(f"Error detecting language: {e}")
+            return {"language": "English", "language_code": "en", "confidence": 50}
     
     @staticmethod
     def translate_message(message: str, target_language: str = "English") -> str:
@@ -315,13 +342,14 @@ class AIFeaturesService:
             if response.startswith('```'):
                 response = response.replace('```', '').strip()
             return json.loads(response)
-        except:
+        except Exception as e:
+            logger.error(f"Error predicting resolution time: {e}")
             base_hours = 2 if priority == "urgent" else 24 if priority == "high" else 48
             return {
                 "estimated_hours": base_hours,
                 "minimum_hours": base_hours * 0.5,
                 "maximum_hours": base_hours * 2,
-                "confidence": "medium",
+                "confidence": "low",
                 "reasoning": "Based on priority level"
             }
 
@@ -359,7 +387,8 @@ class AIFeaturesService:
             if response.startswith('```'):
                 response = response.replace('```', '').strip()
             return json.loads(response)
-        except:
+        except Exception as e:
+            logger.error(f"Error analyzing sentiment trends: {e}")
             return {
                 "trend": "stable",
                 "current_sentiment": "neutral",
@@ -398,7 +427,8 @@ class AIFeaturesService:
             if response.startswith('```'):
                 response = response.replace('```', '').strip()
             return json.loads(response)
-        except:
+        except Exception as e:
+            logger.error(f"Error analyzing feedback: {e}")
             return {
                 "sentiment": "neutral",
                 "key_themes": ["Resolution completed"],

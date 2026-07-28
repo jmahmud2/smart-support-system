@@ -34,9 +34,23 @@ export default function Dashboard() {
       setStats(statsResponse.data);
 
       const ticketsResponse = await apiClient.get('/support/tickets?limit=5');
-      setRecentTickets(ticketsResponse.data);
+      
+      // Handle different response formats
+      let ticketsData = [];
+      if (ticketsResponse.data) {
+        if (ticketsResponse.data.data && Array.isArray(ticketsResponse.data.data)) {
+          ticketsData = ticketsResponse.data.data;
+        } else if (ticketsResponse.data.value && Array.isArray(ticketsResponse.data.value)) {
+          ticketsData = ticketsResponse.data.value;
+        } else if (Array.isArray(ticketsResponse.data)) {
+          ticketsData = ticketsResponse.data;
+        }
+      }
+      
+      setRecentTickets(ticketsData);
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
+      setRecentTickets([]);
     } finally {
       setLoading(false);
     }
@@ -100,7 +114,10 @@ export default function Dashboard() {
       
       setSaveSuccess(true);
       fetchDashboardData();
-      setRecentTickets(prev => [response.data, ...prev.slice(0, 4)]);
+      setRecentTickets(prev => {
+        const newTickets = [response.data, ...prev.slice(0, 4)];
+        return newTickets;
+      });
       
       setTimeout(() => {
         setSaveSuccess(false);
@@ -247,35 +264,35 @@ export default function Dashboard() {
             />
             
             <div className="flex flex-wrap gap-2">
-  <button
-    className="btn btn-secondary btn-sm"
-    onClick={loadExample}
-  >
-    Load Example
-  </button>
-  <button
-    className="btn btn-primary flex-1"
-    onClick={handleAnalyze}
-    disabled={analyzing || !message.trim()}
-  >
-    {analyzing ? 'Analyzing...' : 'Analyze Message'}
-  </button>
-  {message && (
-    <button
-      className="btn btn-secondary"
-      onClick={handleClear}
-    >
-      Clear
-    </button>
-  )}
-</div>
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={loadExample}
+              >
+                Load Example
+              </button>
+              <button
+                className="btn btn-primary flex-1"
+                onClick={handleAnalyze}
+                disabled={analyzing || !message.trim()}
+              >
+                {analyzing ? 'Analyzing...' : 'Analyze Message'}
+              </button>
+              {message && (
+                <button
+                  className="btn btn-secondary"
+                  onClick={handleClear}
+                >
+                  Clear
+                </button>
+              )}
+            </div>
 
-{analyzing && (
-  <div className="flex items-center justify-center p-4">
-    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
-    <span className="ml-2 text-gray-600">Analyzing message...</span>
-  </div>
-)}
+            {analyzing && (
+              <div className="flex items-center justify-center p-4">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+                <span className="ml-2 text-gray-600">Analyzing message...</span>
+              </div>
+            )}
 
             {analysisResult && (
               <div className="mt-4 p-4 bg-gray-50 rounded-lg space-y-3">
