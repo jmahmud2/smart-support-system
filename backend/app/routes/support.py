@@ -5,7 +5,7 @@ Handles ticket creation, analysis, and retrieval.
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from typing import Optional
+from typing import Optional, List  # <-- ADDED List here
 from datetime import datetime, timezone
 from pydantic import BaseModel
 
@@ -600,3 +600,85 @@ async def search_knowledge_base(
         n_results=5
     )
     return {"query": query, "articles": articles}
+
+
+# ============ TICKET MERGING ROUTES ============
+
+@router.post("/tickets/{ticket_id}/check-duplicates")
+async def check_duplicates(
+    ticket_id: int,
+    db: Session = Depends(get_db)
+):
+    """Check for duplicate tickets from the same customer."""
+    ticket = db.query(SupportTicketModel).filter(SupportTicketModel.id == ticket_id).first()
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+    
+    if not ticket.customer_email:
+        return {"duplicates": [], "message": "No email address for this customer"}
+    
+    duplicates = SupportController.find_duplicate_tickets(
+        db, 
+        ticket.customer_email, 
+        ticket.customer_message
+    )
+    
+    return {
+        "ticket_id": ticket_id,
+        "duplicates": [
+            {
+                "id": t.id,
+                "customer_message": t.customer_message[:100],
+                "status": t.status,
+                "created_at": t.created_at
+            }
+            for t in duplicates
+            if t.id != ticket_id
+        ],
+        "count": len(duplicates)
+    }
+
+
+@router.post("/tickets/merge")
+async def merge_tickets(
+    master_id: int,
+    duplicate_ids: List[int],
+    db: Session = Depends(get_db)
+):
+    """Merge duplicate tickets into one master ticket."""
+    if master_id in duplicate_ids:
+        raise HTTPException(status_code=400, detail="Master ticket cannot be in duplicate list")
+    
+    master = SupportController.merge_tickets(db, master_id, duplicate_ids)
+    if not master:
+        raise HTTPException(status_code=404, detail="Master ticket not found")
+    
+    return {
+        "success": True,
+        "master_ticket_id": master.id,
+        "merged_tickets": duplicate_ids,
+        "message": f"Successfully merged {len(duplicate_ids)} tickets into ticket #{master.id}"
+    }
+
+
+@router.get("/tickets/sla-stats")
+async def get_sla_stats(
+    db: Session = Depends(get_db)
+):
+    """Get SLA statistics."""
+    from sqlalchemy import func
+    
+    total_tickets = db.query(func.count(SupportTicketModel.id)).scalar()
+    
+    sla_breakdown = db.query(
+        SupportTicketModel.sla_status,
+        func.count(SupportTicketModel.id)
+    ).group_by(SupportTicketModel.sla_status).all()
+    
+    return {
+        "total_tickets": total_tickets or 0,
+        "sla_breakdown": {status or "on_track": count for status, count in sla_breakdown if status},
+        "on_track": sum(count for status, count in sla_breakdown if status == "on_track" or status is None),
+        "approaching": sum(count for status, count in sla_breakdown if status == "approaching"),
+        "breached": sum(count for status, count in sla_breakdown if status == "breached")
+    }

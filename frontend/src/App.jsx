@@ -7,6 +7,8 @@ import Products from './pages/Products';
 import Tickets from './pages/Tickets';
 import AgentDashboard from './pages/AgentDashboard';
 import Login from './pages/Login';
+import CustomerSubmit from './pages/CustomerSubmit';
+import CustomerTrack from './pages/CustomerTrack';
 
 function App() {
   return (
@@ -20,6 +22,12 @@ function App() {
         <Layout>
           <Routes>
             <Route path="/login" element={<Login />} />
+            
+            {/* Public Customer Routes */}
+            <Route path="/customer/submit" element={<CustomerSubmit />} />
+            <Route path="/customer/track" element={<CustomerTrack />} />
+            
+            {/* Protected Routes */}
             <Route path="/" element={
               <ProtectedRoute>
                 <Dashboard />

@@ -148,3 +148,94 @@ def send_ticket_resolved_email(to_email: str, customer_name: str, ticket_id: int
     except Exception as e:
         print(f"Email error: {e}")
         return False
+
+
+def send_assignment_email(to_email: str, customer_name: str, ticket_id: int, agent_name: str) -> bool:
+    """Send notification when a ticket is assigned to an agent."""
+    if not RESEND_API_KEY:
+        return False
+
+    subject = f"Your Ticket #{ticket_id} Has Been Assigned"
+
+    html_content = f"""
+    <html>
+    <body>
+        <h2>Hello {customer_name or 'there'},</h2>
+        <p>Your support ticket <strong>#{ticket_id}</strong> has been assigned to <strong>{agent_name}</strong>.</p>
+        <p>Our agent will review your case and get back to you shortly.</p>
+        <p>You can track your ticket status here:</p>
+        <a href="https://yourdomain.com/customer/track">Track Your Ticket</a>
+        <br>
+        <p>Best regards,<br>Support Team</p>
+    </body>
+    </html>
+    """
+
+    try:
+        response = httpx.post(
+            "https://api.resend.com/emails",
+            headers={
+                "Authorization": f"Bearer {RESEND_API_KEY}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "from": RESEND_FROM_EMAIL,
+                "to": [to_email],
+                "subject": subject,
+                "html": html_content,
+            },
+            timeout=15.0,
+        )
+
+        if response.status_code == 200:
+            print(f"Assignment email sent to {to_email}")
+            return True
+        else:
+            print(f"Assignment email failed: {response.text}")
+            return False
+
+    except Exception as e:
+        print(f"Assignment email error: {e}")
+        return False
+
+
+def send_agent_assignment_notification(to_email: str, agent_name: str, ticket_id: int, customer_name: str) -> bool:
+    """Send notification to agent when a ticket is assigned to them."""
+    if not RESEND_API_KEY:
+        return False
+
+    subject = f"New Ticket #{ticket_id} Assigned to You"
+
+    html_content = f"""
+    <html>
+    <body>
+        <h2>Hello {agent_name},</h2>
+        <p>A new ticket <strong>#{ticket_id}</strong> has been assigned to you.</p>
+        <p><strong>Customer:</strong> {customer_name or 'Anonymous'}</p>
+        <p>Please log in to the support dashboard to view and respond to this ticket.</p>
+        <br>
+        <p>Best regards,<br>Support Team</p>
+    </body>
+    </html>
+    """
+
+    try:
+        response = httpx.post(
+            "https://api.resend.com/emails",
+            headers={
+                "Authorization": f"Bearer {RESEND_API_KEY}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "from": RESEND_FROM_EMAIL,
+                "to": [to_email],
+                "subject": subject,
+                "html": html_content,
+            },
+            timeout=15.0,
+        )
+
+        return response.status_code == 200
+    except Exception as e:
+        print(f"Agent notification email error: {e}")
+        return False

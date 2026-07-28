@@ -62,6 +62,12 @@ class SupportTicket(Base):
     assigned_agent = Column(String, nullable=True)
     ticket_summary = Column(Text, nullable=True)
     
+    # SLA Tracking - NEW
+    sla_response_deadline = Column(DateTime, nullable=True)
+    sla_resolution_deadline = Column(DateTime, nullable=True)
+    sla_status = Column(String, default="on_track")
+    first_response_time = Column(DateTime, nullable=True)
+    
     status = Column(String, default="new")
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     resolved_at = Column(DateTime, nullable=True)

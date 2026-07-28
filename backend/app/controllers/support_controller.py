@@ -45,6 +45,10 @@ class SupportController:
             workflow_result = process_message(ticket_data.customer_message)
             logger.info(f"Workflow result: Intent={workflow_result.get('intent')}, Sentiment={workflow_result.get('sentiment')}")
 
+            # Calculate SLA
+            priority = workflow_result.get('priority') or "medium"
+            sla = SupportController.calculate_sla(priority)
+
             ticket = SupportTicket(
                 customer_name=ticket_data.customer_name,
                 customer_email=ticket_data.customer_email,
@@ -53,7 +57,7 @@ class SupportController:
                 intent=workflow_result.get('intent') or "general",
                 sentiment=workflow_result.get('sentiment') or "neutral",
                 sentiment_explanation=workflow_result.get('sentiment_explanation') or "",
-                priority=workflow_result.get('priority') or "medium",
+                priority=priority,
                 priority_reasoning=workflow_result.get('priority_reasoning') or "",
                 response=workflow_result.get('response') or "Thank you for reaching out. Our team will review your inquiry.",
                 escalate=workflow_result.get('escalate', False),
@@ -61,7 +65,11 @@ class SupportController:
                 reasoning=workflow_result.get('reasoning') or "",
                 assigned_agent=workflow_result.get('assigned_agent') or "",
                 ticket_summary=workflow_result.get('ticket_summary') or "",
-                status='new'
+                status='new',
+                # SLA fields
+                sla_response_deadline=sla.get('response_deadline'),
+                sla_resolution_deadline=sla.get('resolution_deadline'),
+                sla_status='on_track'
             )
 
             db.add(ticket)
@@ -153,6 +161,10 @@ class SupportController:
 
         db.commit()
         db.refresh(ticket)
+        
+        # Update SLA status
+        SupportController.update_sla_status(db, ticket_id)
+        
         logger.info(f"Ticket #{ticket_id} status updated to: {status}")
         return ticket
 
@@ -178,12 +190,18 @@ class SupportController:
             SupportTicket.escalate == True
         ).scalar()
 
+        # SLA stats
+        sla_breached = db.query(func.count(SupportTicket.id)).filter(
+            SupportTicket.sla_status == "breached"
+        ).scalar()
+
         result = {
             "total_tickets": total_tickets or 0,
             "status_breakdown": {status: count for status, count in status_breakdown if status},
             "intent_breakdown": {intent: count for intent, count in intent_breakdown if intent},
             "escalated_count": escalated_count or 0,
-            "escalation_rate": round((escalated_count / total_tickets * 100) if total_tickets > 0 else 0, 2)
+            "escalation_rate": round((escalated_count / total_tickets * 100) if total_tickets > 0 else 0, 2),
+            "sla_breached": sla_breached or 0
         }
         logger.info(f"Stats fetched: {result['total_tickets']} total tickets")
         return result
@@ -354,6 +372,10 @@ class SupportController:
         ticket.assigned_to = agent_name
         db.commit()
         db.refresh(ticket)
+        
+        # Update SLA status
+        SupportController.update_sla_status(db, ticket_id)
+        
         logger.info(f"Ticket #{ticket_id} assigned to: {agent_name}")
         return ticket
 
@@ -490,3 +512,88 @@ class SupportController:
         db.commit()
         db.refresh(ticket)
         return ticket
+
+    # ============ SLA TRACKING ============
+
+    @staticmethod
+    def calculate_sla(priority: str) -> dict:
+        """Calculate SLA deadlines based on priority."""
+        now = datetime.now(timezone.utc)
+        
+        # Response SLA: urgent=2h, high=4h, medium=8h, low=24h
+        response_hours = {"urgent": 2, "high": 4, "medium": 8, "low": 24}
+        
+        # Resolution SLA: urgent=24h, high=48h, medium=72h, low=120h
+        resolution_hours = {"urgent": 24, "high": 48, "medium": 72, "low": 120}
+        
+        return {
+            "response_deadline": now + timedelta(hours=response_hours.get(priority, 8)),
+            "resolution_deadline": now + timedelta(hours=resolution_hours.get(priority, 72))
+        }
+
+    @staticmethod
+    def update_sla_status(db: Session, ticket_id: int) -> Optional[SupportTicket]:
+        """Update SLA status for a ticket."""
+        ticket = db.query(SupportTicket).filter(SupportTicket.id == ticket_id).first()
+        if not ticket:
+            return None
+        
+        now = datetime.now(timezone.utc)
+        
+        if ticket.sla_response_deadline and now > ticket.sla_response_deadline:
+            if ticket.first_response_time is None:
+                ticket.sla_status = "breached"
+        elif ticket.sla_resolution_deadline and now > ticket.sla_resolution_deadline:
+            if ticket.status not in ["resolved", "closed"]:
+                ticket.sla_status = "breached"
+        elif ticket.sla_response_deadline and now > ticket.sla_response_deadline - timedelta(hours=1):
+            if ticket.first_response_time is None:
+                ticket.sla_status = "approaching"
+        else:
+            ticket.sla_status = "on_track"
+        
+        db.commit()
+        db.refresh(ticket)
+        return ticket
+
+    # ============ TICKET MERGING & DEDUPLICATION ============
+
+    @staticmethod
+    def find_duplicate_tickets(db: Session, email: str, message: str) -> List[SupportTicket]:
+        """Find duplicate tickets from the same customer with similar messages."""
+        seven_days_ago = datetime.now(timezone.utc) - timedelta(days=7)
+        
+        tickets = db.query(SupportTicket).filter(
+            SupportTicket.customer_email == email,
+            SupportTicket.created_at >= seven_days_ago,
+            SupportTicket.status.in_(["new", "in_progress"])
+        ).all()
+        
+        duplicates = []
+        for ticket in tickets:
+            words1 = set(message.lower().split())
+            words2 = set(ticket.customer_message.lower().split())
+            overlap = len(words1.intersection(words2))
+            if overlap > 3:
+                duplicates.append(ticket)
+        
+        return duplicates
+
+    @staticmethod
+    def merge_tickets(db: Session, master_id: int, duplicate_ids: List[int]) -> Optional[SupportTicket]:
+        """Merge duplicate tickets into one master ticket."""
+        master = db.query(SupportTicket).filter(SupportTicket.id == master_id).first()
+        if not master:
+            return None
+        
+        for dup_id in duplicate_ids:
+            dup = db.query(SupportTicket).filter(SupportTicket.id == dup_id).first()
+            if dup and dup.id != master_id:
+                master.customer_message += f"\n\n[Duplicate ticket #{dup.id}]\n{dup.customer_message}"
+                dup.status = "closed"
+                dup.resolved_at = datetime.now(timezone.utc)
+                dup.reasoning = f"Merged into ticket #{master_id}"
+        
+        db.commit()
+        db.refresh(master)
+        return master

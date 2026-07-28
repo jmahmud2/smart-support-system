@@ -10,6 +10,11 @@ const navigation = [
   { name: 'Tickets', href: '/tickets' },
 ];
 
+const publicNavigation = [
+  { name: 'Submit Ticket', href: '/customer/submit' },
+  { name: 'Track Tickets', href: '/customer/track' },
+];
+
 export default function Layout({ children }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [user, setUser] = useState(null);
@@ -32,6 +37,9 @@ export default function Layout({ children }) {
   };
 
   const isActive = (path) => location.pathname === path;
+
+  // Check if current path is a public customer page
+  const isPublicPage = location.pathname.startsWith('/customer/');
 
   if (location.pathname === '/login') {
     return (
@@ -67,15 +75,32 @@ export default function Layout({ children }) {
             </div>
 
             <div className="hidden lg:flex lg:items-center lg:gap-4">
-              {navigation.map((item) => (
-                <Link
-                  key={item.name}
-                  to={item.href}
-                  className={`nav-link ${isActive(item.href) ? 'nav-link-active' : 'nav-link-inactive'}`}
-                >
-                  {item.name}
-                </Link>
-              ))}
+              {/* Show different navigation based on user role */}
+              {user ? (
+                <>
+                  {navigation.map((item) => (
+                    <Link
+                      key={item.name}
+                      to={item.href}
+                      className={`nav-link ${isActive(item.href) ? 'nav-link-active' : 'nav-link-inactive'}`}
+                    >
+                      {item.name}
+                    </Link>
+                  ))}
+                </>
+              ) : (
+                <>
+                  {publicNavigation.map((item) => (
+                    <Link
+                      key={item.name}
+                      to={item.href}
+                      className={`nav-link ${isActive(item.href) ? 'nav-link-active' : 'nav-link-inactive'}`}
+                    >
+                      {item.name}
+                    </Link>
+                  ))}
+                </>
+              )}
               
               <NotificationBell />
               
@@ -138,20 +163,41 @@ export default function Layout({ children }) {
           }`}
         >
           <div className="px-4 py-4 space-y-2">
-            {navigation.map((item) => (
-              <Link
-                key={item.name}
-                to={item.href}
-                onClick={() => setMobileMenuOpen(false)}
-                className={`block px-4 py-3 rounded-lg text-base font-medium ${
-                  isActive(item.href)
-                    ? 'bg-primary-50 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400'
-                    : 'text-gray-700 hover:bg-gray-100 dark:text-slate-300 dark:hover:bg-slate-700'
-                }`}
-              >
-                {item.name}
-              </Link>
-            ))}
+            {user ? (
+              <>
+                {navigation.map((item) => (
+                  <Link
+                    key={item.name}
+                    to={item.href}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={`block px-4 py-3 rounded-lg text-base font-medium ${
+                      isActive(item.href)
+                        ? 'bg-primary-50 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400'
+                        : 'text-gray-700 hover:bg-gray-100 dark:text-slate-300 dark:hover:bg-slate-700'
+                    }`}
+                  >
+                    {item.name}
+                  </Link>
+                ))}
+              </>
+            ) : (
+              <>
+                {publicNavigation.map((item) => (
+                  <Link
+                    key={item.name}
+                    to={item.href}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={`block px-4 py-3 rounded-lg text-base font-medium ${
+                      isActive(item.href)
+                        ? 'bg-primary-50 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400'
+                        : 'text-gray-700 hover:bg-gray-100 dark:text-slate-300 dark:hover:bg-slate-700'
+                    }`}
+                  >
+                    {item.name}
+                  </Link>
+                ))}
+              </>
+            )}
             {user ? (
               <>
                 <div className="px-4 py-2 text-sm text-gray-500 dark:text-slate-400">
