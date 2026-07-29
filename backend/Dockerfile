@@ -2,8 +2,9 @@ FROM python:3.13-slim
 
 WORKDIR /app
 
-# Install system dependencies needed for some Python packages
+# Install system dependencies including C++ compiler
 RUN apt-get update && apt-get install -y \
+    g++ \
     gcc \
     && rm -rf /var/lib/apt/lists/*
 
