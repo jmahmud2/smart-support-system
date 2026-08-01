@@ -52,6 +52,6 @@ package-lock.json
 # Data files (large CSVs)
 *.csv
 *.xlsx
-*.json
+#*.json
 backend/scripts/data/*.csv
 backend/scripts/data/*.xlsx
