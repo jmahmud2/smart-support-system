@@ -15,7 +15,8 @@ def analyze_message_comprehensive(state: SupportState) -> dict:
     message = state.get("customer_message", "")
     
     prompt = f"""
-    Analyze this customer message and return a JSON object with:
+    You are an AI assistant for a customer support system. Your task is to analyze the customer's message and return a JSON object with the following fields:
+
     {{
         "intent": "refund|shipping|product_inquiry|complaint|general",
         "sentiment": "positive|neutral|negative",
@@ -23,37 +24,47 @@ def analyze_message_comprehensive(state: SupportState) -> dict:
         "summary": "a one-sentence summary of the customer's specific issue and what they want",
         "response": "a professional reply to the customer (3-5 sentences)"
     }}
-    
-    Message: {message}
-    
-    Return ONLY the JSON object. Do not include any explanation, safety warnings, or additional text.
+
+    Customer Message: {message}
+
+    IMPORTANT: Return ONLY the JSON object. Do not include any explanation, safety warnings, or additional text. Your entire response must be valid JSON.
     """
     
     response = call_llm(prompt)
     
-    # Clean the response: extract JSON
-    import re
-    cleaned = re.sub(r'User Safety:.*?\n', '', response)
+    # Aggressive cleaning to extract JSON
+    cleaned = response
+    
+    # Remove common prefixes
+    cleaned = re.sub(r'^(We need to parse|The user says|Here is|I\'ll|Let me|The message|I see|I think|I\'m going to|I will).*?\n', '', cleaned, flags=re.IGNORECASE)
+    
+    # Remove safety warnings
+    cleaned = re.sub(r'User Safety:.*?\n', '', cleaned)
     cleaned = re.sub(r'Safety:.*?\n', '', cleaned)
+    cleaned = re.sub(r'AI Safety:.*?\n', '', cleaned)
+    
+    # Find first { and last }
     start = cleaned.find('{')
     end = cleaned.rfind('}')
     if start != -1 and end != -1:
         cleaned = cleaned[start:end+1]
     
+    # Remove any trailing text after the JSON
+    cleaned = re.sub(r'[^}]*$', '', cleaned)
+    
     try:
-        import json
         data = json.loads(cleaned)
         return {
             "intent": data.get("intent", "general"),
             "sentiment": data.get("sentiment", "neutral"),
-            "sentiment_explanation": f"Sentiment: {data.get('sentiment', 'neutral')}",
+            "sentiment_explanation": f"Sentiment detected: {data.get('sentiment', 'neutral')}",
             "priority": data.get("priority", "low"),
-            "priority_reasoning": f"Priority: {data.get('priority', 'low')}",
+            "priority_reasoning": f"Priority assigned: {data.get('priority', 'low')}",
             "ticket_summary": data.get("summary", "Customer inquiry"),
             "response": data.get("response", "Thank you for reaching out. We'll review your inquiry and get back to you shortly.")
         }
-    except json.JSONDecodeError:
-        logger.warning(f"Failed to parse JSON. Raw: {response[:200]}...")
+    except json.JSONDecodeError as e:
+        logger.warning(f"Failed to parse JSON. Error: {e}. Raw: {response[:300]}...")
         return {
             "intent": "general",
             "sentiment": "neutral",
