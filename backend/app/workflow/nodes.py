@@ -3,6 +3,7 @@ Workflow node implementations for the customer support system.
 """
 
 import json
+import re
 from .state import SupportState
 from .llm import call_llm
 from ..utils.logger import get_logger
@@ -11,10 +12,6 @@ logger = get_logger(__name__)
 
 
 def analyze_message_comprehensive(state: SupportState) -> dict:
-    """
-    Single LLM call for intent, sentiment, priority, and summary.
-    Replaces 4 separate calls with 1.
-    """
     message = state.get("customer_message", "")
     
     prompt = f"""
@@ -28,12 +25,17 @@ def analyze_message_comprehensive(state: SupportState) -> dict:
     
     Message: {message}
     
-    Return ONLY the JSON object, no other text.
+    Return ONLY the JSON object. Do not include any explanation, safety warnings, or additional text.
     """
     
     response = call_llm(prompt)
+    
+    # Clean the response: extract JSON from any extra text
+    cleaned = re.sub(r'^[^{]*', '', response)  # Remove anything before first {
+    cleaned = re.sub(r'[^}]*$', '', cleaned)   # Remove anything after last }
+    
     try:
-        data = json.loads(response)
+        data = json.loads(cleaned)
         return {
             "intent": data.get("intent", "general"),
             "sentiment": data.get("sentiment", "neutral"),
@@ -43,7 +45,7 @@ def analyze_message_comprehensive(state: SupportState) -> dict:
             "ticket_summary": data.get("summary", "Customer inquiry")
         }
     except json.JSONDecodeError:
-        logger.warning(f"Failed to parse JSON from LLM: {response[:100]}...")
+        logger.warning(f"Failed to parse JSON. Raw response: {response[:200]}...")
         return {
             "intent": "general",
             "sentiment": "neutral",
