@@ -20,7 +20,8 @@ def analyze_message_comprehensive(state: SupportState) -> dict:
         "intent": "refund|shipping|product_inquiry|complaint|general",
         "sentiment": "positive|neutral|negative",
         "priority": "urgent|high|medium|low",
-        "summary": "a one-sentence summary describing the customer's specific problem and what they are asking for"
+        "summary": "a one-sentence summary of the customer's specific issue and what they want",
+        "response": "a professional reply to the customer (3-5 sentences)"
     }}
     
     Message: {message}
@@ -30,34 +31,38 @@ def analyze_message_comprehensive(state: SupportState) -> dict:
     
     response = call_llm(prompt)
     
-    # Clean the response: extract JSON from any extra text
-    cleaned = re.sub(r'^[^{]*', '', response)  # Remove anything before first {
-    cleaned = re.sub(r'[^}]*$', '', cleaned)   # Remove anything after last }
-    # Remove safety warnings
-    cleaned = re.sub(r'User Safety:.*?\n', '', cleaned)
+    # Clean the response: extract JSON
+    import re
+    cleaned = re.sub(r'User Safety:.*?\n', '', response)
     cleaned = re.sub(r'Safety:.*?\n', '', cleaned)
+    start = cleaned.find('{')
+    end = cleaned.rfind('}')
+    if start != -1 and end != -1:
+        cleaned = cleaned[start:end+1]
     
     try:
+        import json
         data = json.loads(cleaned)
         return {
             "intent": data.get("intent", "general"),
             "sentiment": data.get("sentiment", "neutral"),
-            "sentiment_explanation": f"Sentiment detected: {data.get('sentiment', 'neutral')}",
+            "sentiment_explanation": f"Sentiment: {data.get('sentiment', 'neutral')}",
             "priority": data.get("priority", "low"),
-            "priority_reasoning": f"Priority assigned: {data.get('priority', 'low')}",
-            "ticket_summary": data.get("summary", "Customer inquiry")
+            "priority_reasoning": f"Priority: {data.get('priority', 'low')}",
+            "ticket_summary": data.get("summary", "Customer inquiry"),
+            "response": data.get("response", "Thank you for reaching out. We'll review your inquiry and get back to you shortly.")
         }
     except json.JSONDecodeError:
-        logger.warning(f"Failed to parse JSON. Raw response: {response[:200]}...")
+        logger.warning(f"Failed to parse JSON. Raw: {response[:200]}...")
         return {
             "intent": "general",
             "sentiment": "neutral",
             "sentiment_explanation": "Unable to determine sentiment",
             "priority": "low",
             "priority_reasoning": "Default priority assigned",
-            "ticket_summary": "Customer inquiry"
+            "ticket_summary": "Customer inquiry",
+            "response": "Thank you for reaching out. We'll review your inquiry and get back to you shortly."
         }
-
 
 def classify_intent(state: SupportState) -> dict:
     """Fallback: Classify intent using LLM."""
