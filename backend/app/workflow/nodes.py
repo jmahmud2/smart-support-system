@@ -20,7 +20,7 @@ def analyze_message_comprehensive(state: SupportState) -> dict:
         "intent": "refund|shipping|product_inquiry|complaint|general",
         "sentiment": "positive|neutral|negative",
         "priority": "urgent|high|medium|low",
-        "summary": "one sentence summary of the issue"
+        "summary": "a one-sentence summary describing the customer's specific problem and what they are asking for"
     }}
     
     Message: {message}
@@ -33,6 +33,9 @@ def analyze_message_comprehensive(state: SupportState) -> dict:
     # Clean the response: extract JSON from any extra text
     cleaned = re.sub(r'^[^{]*', '', response)  # Remove anything before first {
     cleaned = re.sub(r'[^}]*$', '', cleaned)   # Remove anything after last }
+    # Remove safety warnings
+    cleaned = re.sub(r'User Safety:.*?\n', '', cleaned)
+    cleaned = re.sub(r'Safety:.*?\n', '', cleaned)
     
     try:
         data = json.loads(cleaned)
