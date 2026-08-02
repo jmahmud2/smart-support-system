@@ -41,6 +41,40 @@ apiClient.interceptors.response.use(
   }
 );
 
+// Async analysis function
+export const analyzeMessageAsync = async (message, productId = null) => {
+  try {
+    // Submit task
+    const submitRes = await apiClient.post('/support/analyze/async', {
+      message,
+      product_id: productId
+    });
+    
+    const { task_id } = submitRes.data;
+    
+    // Poll for results
+    let attempts = 0;
+    const maxAttempts = 40; // 40 * 3s = 120s max
+    
+    while (attempts < maxAttempts) {
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      const statusRes = await apiClient.get(`/support/analyze/status/${task_id}`);
+      
+      if (statusRes.data.status === 'completed') {
+        return statusRes.data.result;
+      } else if (statusRes.data.status === 'failed') {
+        throw new Error(statusRes.data.error || 'Analysis failed');
+      }
+      attempts++;
+    }
+    
+    throw new Error('Analysis timed out');
+  } catch (error) {
+    console.error('Analysis error:', error);
+    throw error;
+  }
+};
+
 export const getAgents = () => apiClient.get('/support/agents');
 
 export default apiClient;

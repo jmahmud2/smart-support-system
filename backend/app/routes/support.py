@@ -2,7 +2,9 @@
 Support API routes.
 Handles ticket creation, analysis, and retrieval.
 """
-
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
+import uuid
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import Optional, List  # <-- ADDED List here
@@ -23,6 +25,8 @@ from .auth import get_current_user
 from ..config import Config
 
 router = APIRouter()
+executor = ThreadPoolExecutor(max_workers=2)
+task_status = {}
 
 
 class ReplyRequest(BaseModel):
@@ -682,3 +686,42 @@ async def get_sla_stats(
         "approaching": sum(count for status, count in sla_breakdown if status == "approaching"),
         "breached": sum(count for status, count in sla_breakdown if status == "breached")
     }
+    
+# Add these new routes
+@router.post("/analyze/async")
+async def analyze_async(request: SupportAnalysisRequest):
+    """Submit analysis task and return task_id immediately."""
+    task_id = str(uuid.uuid4())
+    task_status[task_id] = {"status": "pending", "result": None}
+    
+    # Run analysis in background
+    loop = asyncio.get_event_loop()
+    loop.run_in_executor(executor, process_analysis_task, task_id, request)
+    
+    return {"task_id": task_id, "status": "pending"}
+
+
+@router.get("/analyze/status/{task_id}")
+async def get_analysis_status(task_id: str):
+    """Poll for analysis results."""
+    status = task_status.get(task_id)
+    if not status:
+        raise HTTPException(status_code=404, detail="Task not found")
+    return status
+
+
+def process_analysis_task(task_id: str, request: SupportAnalysisRequest):
+    """Background worker for analysis."""
+    try:
+        from ..controllers.support_controller import SupportController
+        result = SupportController.analyze_message(
+            request.message,
+            request.product_id
+        )
+        # Convert to dict if needed
+        if hasattr(result, 'dict'):
+            result = result.dict()
+        task_status[task_id] = {"status": "completed", "result": result}
+    except Exception as e:
+        logger.error(f"Background analysis failed: {e}")
+        task_status[task_id] = {"status": "failed", "error": str(e)}

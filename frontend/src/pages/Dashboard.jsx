@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import apiClient from '../api/client';
+import { analyzeMessageAsync } from '../api/client';
 import TicketCharts from '../components/TicketCharts';
 
 export default function Dashboard() {
@@ -77,24 +78,22 @@ export default function Dashboard() {
   };
 
   const handleAnalyze = async () => {
-    if (!message.trim()) return;
+  if (!message.trim()) return;
 
-    setAnalyzing(true);
-    setAnalysisResult(null);
-    setSaveSuccess(false);
+  setAnalyzing(true);
+  setAnalysisResult(null);
+  setSaveSuccess(false);
 
-    try {
-      const response = await apiClient.post('/support/analyze', {
-        message: message
-      });
-      setAnalysisResult(response.data);
-    } catch (error) {
-      console.error('Error analyzing message:', error);
-      alert('Error analyzing message. Please try again.');
-    } finally {
-      setAnalyzing(false);
-    }
-  };
+  try {
+    const result = await analyzeMessageAsync(message);
+    setAnalysisResult(result);
+  } catch (error) {
+    console.error('Error analyzing message:', error);
+    alert('Error analyzing message. Please try again.');
+  } finally {
+    setAnalyzing(false);
+  }
+};
 
   const handleSaveTicket = async () => {
     if (!analysisResult) return;
