@@ -12,9 +12,13 @@ logger = get_logger(__name__)
 
 
 def analyze_message_comprehensive(state: SupportState) -> dict:
+    """
+    Single LLM call for intent, sentiment, priority, summary, and response.
+    Includes retry logic for JSON parsing failures.
+    """
     message = state.get("customer_message", "")
     
-    prompt = f"""
+    base_prompt = f"""
     You are an AI assistant for a customer support system. Your task is to analyze the customer's message and return a JSON object with the following fields:
 
     {{
@@ -30,50 +34,62 @@ def analyze_message_comprehensive(state: SupportState) -> dict:
     IMPORTANT: Return ONLY the JSON object. Do not include any explanation, safety warnings, or additional text. Your entire response must be valid JSON.
     """
     
-    response = call_llm(prompt)
+    for attempt in range(3):
+        prompt = base_prompt
+        if attempt > 0:
+            prompt += f"\n\nAttempt {attempt+1}: You MUST return ONLY valid JSON. No other text."
+        
+        response = call_llm(prompt)
+        
+        # Aggressive cleaning to extract JSON
+        cleaned = response
+        
+        # Remove common prefixes
+        cleaned = re.sub(r'^(We need to parse|The user says|Here is|I\'ll|Let me|The message|I see|I think|I\'m going to|I will).*?\n', '', cleaned, flags=re.IGNORECASE)
+        
+        # Remove safety warnings
+        cleaned = re.sub(r'User Safety:.*?\n', '', cleaned)
+        cleaned = re.sub(r'Safety:.*?\n', '', cleaned)
+        cleaned = re.sub(r'AI Safety:.*?\n', '', cleaned)
+        
+        # Find first { and last }
+        start = cleaned.find('{')
+        end = cleaned.rfind('}')
+        if start != -1 and end != -1:
+            cleaned = cleaned[start:end+1]
+        
+        # Remove any trailing text after the JSON
+        cleaned = re.sub(r'[^}]*$', '', cleaned)
+        
+        try:
+            data = json.loads(cleaned)
+            return {
+                "intent": data.get("intent", "general"),
+                "sentiment": data.get("sentiment", "neutral"),
+                "sentiment_explanation": f"Sentiment detected: {data.get('sentiment', 'neutral')}",
+                "priority": data.get("priority", "low"),
+                "priority_reasoning": f"Priority assigned: {data.get('priority', 'low')}",
+                "ticket_summary": data.get("summary", "Customer inquiry"),
+                "response": data.get("response", "Thank you for reaching out. We'll review your inquiry and get back to you shortly.")
+            }
+        except json.JSONDecodeError as e:
+            logger.warning(f"Attempt {attempt+1} failed to parse JSON. Error: {e}")
+            if attempt == 2:
+                logger.warning(f"Raw response: {response[:200]}...")
+                break
+            continue
     
-    # Aggressive cleaning to extract JSON
-    cleaned = response
-    
-    # Remove common prefixes
-    cleaned = re.sub(r'^(We need to parse|The user says|Here is|I\'ll|Let me|The message|I see|I think|I\'m going to|I will).*?\n', '', cleaned, flags=re.IGNORECASE)
-    
-    # Remove safety warnings
-    cleaned = re.sub(r'User Safety:.*?\n', '', cleaned)
-    cleaned = re.sub(r'Safety:.*?\n', '', cleaned)
-    cleaned = re.sub(r'AI Safety:.*?\n', '', cleaned)
-    
-    # Find first { and last }
-    start = cleaned.find('{')
-    end = cleaned.rfind('}')
-    if start != -1 and end != -1:
-        cleaned = cleaned[start:end+1]
-    
-    # Remove any trailing text after the JSON
-    cleaned = re.sub(r'[^}]*$', '', cleaned)
-    
-    try:
-        data = json.loads(cleaned)
-        return {
-            "intent": data.get("intent", "general"),
-            "sentiment": data.get("sentiment", "neutral"),
-            "sentiment_explanation": f"Sentiment detected: {data.get('sentiment', 'neutral')}",
-            "priority": data.get("priority", "low"),
-            "priority_reasoning": f"Priority assigned: {data.get('priority', 'low')}",
-            "ticket_summary": data.get("summary", "Customer inquiry"),
-            "response": data.get("response", "Thank you for reaching out. We'll review your inquiry and get back to you shortly.")
-        }
-    except json.JSONDecodeError as e:
-        logger.warning(f"Failed to parse JSON. Error: {e}. Raw: {response[:300]}...")
-        return {
-            "intent": "general",
-            "sentiment": "neutral",
-            "sentiment_explanation": "Unable to determine sentiment",
-            "priority": "low",
-            "priority_reasoning": "Default priority assigned",
-            "ticket_summary": "Customer inquiry",
-            "response": "Thank you for reaching out. We'll review your inquiry and get back to you shortly."
-        }
+    # Fallback response
+    return {
+        "intent": "general",
+        "sentiment": "neutral",
+        "sentiment_explanation": "Unable to determine sentiment",
+        "priority": "low",
+        "priority_reasoning": "Default priority assigned",
+        "ticket_summary": "Customer inquiry",
+        "response": "Thank you for reaching out. We'll review your inquiry and get back to you shortly."
+    }
+
 
 def classify_intent(state: SupportState) -> dict:
     """Fallback: Classify intent using LLM."""
