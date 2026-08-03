@@ -725,3 +725,101 @@ def process_analysis_task(task_id: str, request: SupportAnalysisRequest):
     except Exception as e:
         logger.error(f"Background analysis failed: {e}")
         task_status[task_id] = {"status": "failed", "error": str(e)}
+        
+@router.post("/tickets/{ticket_id}/reply-options")
+async def get_reply_options(ticket_id: int, db: Session = Depends(get_db)):
+    """Generate 3 reply options for a ticket."""
+    from ..services.ai_features import AIFeaturesService
+    ticket = db.query(SupportTicket).filter(SupportTicket.id == ticket_id).first()
+    if not ticket:
+        raise HTTPException(404, "Ticket not found")
+    options = AIFeaturesService.generate_reply_options(
+        ticket.customer_message,
+        ticket.intent or "general",
+        ticket.sentiment or "neutral"
+    )
+    return {"ticket_id": ticket.id, "options": options}
+
+@router.post("/tickets/{ticket_id}/evaluate-response")
+async def evaluate_response(ticket_id: int, db: Session = Depends(get_db)):
+    """Evaluate the quality of the AI response."""
+    from ..services.ai_features import AIFeaturesService
+    ticket = db.query(SupportTicket).filter(SupportTicket.id == ticket_id).first()
+    if not ticket:
+        raise HTTPException(404, "Ticket not found")
+    score = AIFeaturesService.evaluate_response(
+        ticket.response or "",
+        ticket.customer_message,
+        ticket.intent or "general",
+        ticket.sentiment or "neutral"
+    )
+    return {"ticket_id": ticket.id, "quality_score": score}
+
+@router.get("/tickets/{ticket_id}/knowledge-base")
+async def get_kb_articles(ticket_id: int, db: Session = Depends(get_db)):
+    """Get relevant knowledge base articles using RAG."""
+    from ..services.ai_features import AIFeaturesService
+    ticket = db.query(SupportTicket).filter(SupportTicket.id == ticket_id).first()
+    if not ticket:
+        raise HTTPException(404, "Ticket not found")
+    articles = AIFeaturesService.get_knowledge_base_articles_rag(
+        db,
+        ticket.customer_message,
+        ticket.intent or "general",
+        n_results=5
+    )
+    return {"ticket_id": ticket.id, "articles": articles}
+
+@router.get("/tickets/{ticket_id}/churn-risk")
+async def get_churn_risk(ticket_id: int, db: Session = Depends(get_db)):
+    """Predict customer churn risk."""
+    from ..services.ai_features import AIFeaturesService
+    from ..services.customer_context import CustomerContextService
+    ticket = db.query(SupportTicket).filter(SupportTicket.id == ticket_id).first()
+    if not ticket:
+        raise HTTPException(404, "Ticket not found")
+    context = CustomerContextService.get_customer_info(db, ticket.customer_email) if ticket.customer_email else {}
+    risk = AIFeaturesService.predict_churn_risk(context, ticket.customer_message)
+    return {"ticket_id": ticket.id, "churn_risk": risk}
+
+@router.get("/tickets/{ticket_id}/followup")
+async def check_followup(ticket_id: int, db: Session = Depends(get_db)):
+    """Check if a follow-up is needed."""
+    from ..services.ai_features import AIFeaturesService
+    from ..services.customer_context import CustomerContextService
+    ticket = db.query(SupportTicket).filter(SupportTicket.id == ticket_id).first()
+    if not ticket:
+        raise HTTPException(404, "Ticket not found")
+    context = CustomerContextService.get_customer_info(db, ticket.customer_email) if ticket.customer_email else {}
+    followup = AIFeaturesService.detect_followup_needed(
+        ticket.customer_message,
+        ticket.sentiment or "neutral",
+        ticket.priority or "medium",
+        context
+    )
+    return {"ticket_id": ticket.id, "followup": followup}
+
+@router.get("/tickets/{ticket_id}/language")
+async def detect_message_language(ticket_id: int, db: Session = Depends(get_db)):
+    """Detect the language of the ticket message."""
+    from ..services.ai_features import AIFeaturesService
+    ticket = db.query(SupportTicket).filter(SupportTicket.id == ticket_id).first()
+    if not ticket:
+        raise HTTPException(404, "Ticket not found")
+    language = AIFeaturesService.detect_language(ticket.customer_message)
+    return {"ticket_id": ticket.id, "language": language}
+
+@router.get("/tickets/{ticket_id}/resolution-time")
+async def predict_resolution(ticket_id: int, db: Session = Depends(get_db)):
+    """Predict resolution time for a ticket."""
+    from ..services.ai_features import AIFeaturesService
+    ticket = db.query(SupportTicket).filter(SupportTicket.id == ticket_id).first()
+    if not ticket:
+        raise HTTPException(404, "Ticket not found")
+    prediction = AIFeaturesService.predict_resolution_time(
+        ticket.customer_message,
+        ticket.intent or "general",
+        ticket.priority or "medium",
+        ticket.sentiment or "neutral"
+    )
+    return {"ticket_id": ticket.id, "resolution_time": prediction}
