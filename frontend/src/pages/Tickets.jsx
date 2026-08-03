@@ -24,6 +24,7 @@ export default function Tickets() {
   const [feedbackText, setFeedbackText] = useState('');
   const [analyzing, setAnalyzing] = useState(false);
   const [loadingFeatures, setLoadingFeatures] = useState(false);
+  const [featureError, setFeatureError] = useState(null);
   
   // Filter states
   const [statusFilter, setStatusFilter] = useState('');
@@ -242,14 +243,12 @@ export default function Tickets() {
 
   const fetchReplyOptions = async (ticketId) => {
     if (!ticketId) return;
-    setLoadingFeatures(true);
     try {
       const response = await apiClient.post(`/support/tickets/${ticketId}/reply-options`);
       setReplyOptions(response.data.options || []);
     } catch (error) {
-      console.error('Error fetching reply options:', error);
-    } finally {
-      setLoadingFeatures(false);
+      console.warn('Reply options failed:', error.message);
+      throw error;
     }
   };
 
@@ -259,7 +258,8 @@ export default function Tickets() {
       const response = await apiClient.post(`/support/tickets/${ticketId}/evaluate-response`);
       setQualityScore(response.data.quality_score);
     } catch (error) {
-      console.error('Error evaluating response:', error);
+      console.warn('Response evaluation failed:', error.message);
+      throw error;
     }
   };
 
@@ -269,7 +269,8 @@ export default function Tickets() {
       const response = await apiClient.get(`/support/tickets/${ticketId}/knowledge-base`);
       setKbArticles(response.data.articles || []);
     } catch (error) {
-      console.error('Error fetching knowledge base:', error);
+      console.warn('Knowledge base search failed:', error.message);
+      throw error;
     }
   };
 
@@ -279,7 +280,8 @@ export default function Tickets() {
       const response = await apiClient.get(`/support/tickets/${ticketId}/churn-risk`);
       setChurnRisk(response.data.churn_risk);
     } catch (error) {
-      console.error('Error fetching churn risk:', error);
+      console.warn('Churn risk prediction failed:', error.message);
+      throw error;
     }
   };
 
@@ -289,7 +291,8 @@ export default function Tickets() {
       const response = await apiClient.get(`/support/tickets/${ticketId}/followup`);
       setFollowupInfo(response.data.followup);
     } catch (error) {
-      console.error('Error fetching followup info:', error);
+      console.warn('Follow-up detection failed:', error.message);
+      throw error;
     }
   };
 
@@ -299,7 +302,8 @@ export default function Tickets() {
       const response = await apiClient.get(`/support/tickets/${ticketId}/language`);
       setTicketLanguage(response.data.language);
     } catch (error) {
-      console.error('Error fetching language:', error);
+      console.warn('Language detection failed:', error.message);
+      throw error;
     }
   };
 
@@ -309,7 +313,8 @@ export default function Tickets() {
       const response = await apiClient.get(`/support/tickets/${ticketId}/resolution-time`);
       setResolutionTime(response.data.resolution_time);
     } catch (error) {
-      console.error('Error fetching resolution time:', error);
+      console.warn('Resolution time prediction failed:', error.message);
+      throw error;
     }
   };
 
@@ -338,6 +343,8 @@ export default function Tickets() {
   const loadAllAIFeatures = async (ticketId) => {
     if (!ticketId) return;
     setLoadingFeatures(true);
+    setFeatureError(null);
+    
     try {
       await Promise.all([
         fetchReplyOptions(ticketId),
@@ -349,7 +356,8 @@ export default function Tickets() {
         fetchResolutionTime(ticketId),
       ]);
     } catch (error) {
-      console.error('Error loading AI features:', error);
+      console.warn('Some AI features failed:', error.message);
+      setFeatureError('Some AI insights could not be loaded. Please try again.');
     } finally {
       setLoadingFeatures(false);
     }
@@ -397,6 +405,14 @@ export default function Tickets() {
     }
     if (type === 'language') {
       return 'badge-blue';
+    }
+    if (type === 'sla') {
+      switch(value) {
+        case 'breached': return 'badge-red';
+        case 'approaching': return 'badge-yellow';
+        case 'on_track': return 'badge-green';
+        default: return 'badge-gray';
+      }
     }
     return 'badge-gray';
   };
@@ -630,6 +646,7 @@ export default function Tickets() {
                     setFeedbackAnalysis(null);
                     setShowFeedbackForm(false);
                     setFeedbackText('');
+                    setFeatureError(null);
                   }}
                 >
                   <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-slate-100">#{ticket.id}</td>
@@ -879,6 +896,28 @@ export default function Tickets() {
                   </div>
                 </div>
 
+                {/* SLA Display - NEW */}
+                {selectedTicket.sla_status && (
+                  <div className="p-3 bg-gray-50 dark:bg-slate-700 rounded-lg border border-gray-200 dark:border-slate-600">
+                    <p className="text-sm text-gray-500 dark:text-slate-400">SLA Status</p>
+                    <div className="flex items-center gap-2 flex-wrap mt-1">
+                      <span className={`badge ${getBadgeColor('sla', selectedTicket.sla_status)}`}>
+                        {selectedTicket.sla_status === 'on_track' ? '✅ On Track' : 
+                         selectedTicket.sla_status === 'approaching' ? '⚠️ Approaching Deadline' : 
+                         '🚨 Breached'}
+                      </span>
+                      <span className="text-xs text-gray-500 dark:text-slate-400">
+                        Response by: {selectedTicket.sla_response_deadline ? new Date(selectedTicket.sla_response_deadline).toLocaleString() : 'N/A'}
+                      </span>
+                    </div>
+                    {selectedTicket.sla_resolution_deadline && (
+                      <p className="text-xs text-gray-500 dark:text-slate-400 mt-1">
+                        Resolution by: {new Date(selectedTicket.sla_resolution_deadline).toLocaleString()}
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 {ticketLanguage && (
                   <div>
                     <p className="text-sm text-gray-500 dark:text-slate-400">Language</p>
@@ -1065,6 +1104,13 @@ export default function Tickets() {
                     >
                       {loadingFeatures ? 'Loading AI Features...' : 'Analyze with AI'}
                     </button>
+                  </div>
+                )}
+
+                {/* Error message for AI features */}
+                {featureError && (
+                  <div className="mt-2 p-2 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg text-sm text-yellow-700 dark:text-yellow-300">
+                    ⚠️ {featureError}
                   </div>
                 )}
 
