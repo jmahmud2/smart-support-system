@@ -4,6 +4,7 @@ All configurable values are centralized here.
 """
 
 import os
+import re
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -38,10 +39,18 @@ class Config:
     DEFAULT_PAGE_LIMIT = int(os.getenv("DEFAULT_PAGE_LIMIT", 20))
     MAX_PAGE_LIMIT = int(os.getenv("MAX_PAGE_LIMIT", 200))
     
-    # CORS
+    # CORS - Explicit allowlist
     ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:3000").split(",")
     
+    # CORS - Dynamic regex pattern for Vercel preview deployments
+    # This automatically accepts any Vercel preview URL without updating ALLOWED_ORIGINS
+    ALLOWED_ORIGIN_REGEX = r'^https://smart-support-system-.*\.vercel\.app$'
+    
     # Email
+    RESEND_API_KEY = os.getenv("RESEND_API_KEY")
+    RESEND_FROM_EMAIL = os.getenv("RESEND_FROM_EMAIL", "support@smart-support.com")
+    
+    # Optional SMTP (legacy)
     SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com")
     SMTP_PORT = int(os.getenv("SMTP_PORT", 587))
     SMTP_USER = os.getenv("SMTP_USER", "")

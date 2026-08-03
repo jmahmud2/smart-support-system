@@ -4,6 +4,7 @@ from .routes import products, categories, stats, support, auth
 from .database.database import init_db
 from .utils.logger import get_logger, log_request, log_response
 from .utils.error_handler import handle_exception
+from .config import Config
 import os
 import time
 import uuid
@@ -17,15 +18,17 @@ init_db()
 logger.info("Database initialized")
 
 app = FastAPI(
-    title="Smart Support System API",
+    title=Config.API_TITLE,
     description="AI-powered customer support system with product catalog",
-    version="1.0.0"
+    version=Config.API_VERSION
 )
 
+# Global exception handler
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     return handle_exception(exc, request)
 
+# Request logging middleware
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     request_id = str(uuid.uuid4())[:8]
@@ -44,14 +47,17 @@ async def log_requests(request: Request, call_next):
         logger.error(f"Request {request_id} failed after {duration:.2f}s: {e}")
         raise
 
+# CORS middleware - future-proof with regex for Vercel previews
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=os.getenv("ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:3000").split(","),
+    allow_origins=Config.ALLOWED_ORIGINS,
+    allow_origin_regex=Config.ALLOWED_ORIGIN_REGEX,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# Include routers
 app.include_router(products.router, prefix="/api/products", tags=["products"])
 app.include_router(categories.router, prefix="/api/categories", tags=["categories"])
 app.include_router(stats.router, prefix="/api/stats", tags=["stats"])
@@ -60,7 +66,7 @@ app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 
 @app.get("/")
 async def root():
-    return {"message": "Smart Support System API", "version": "1.0.0"}
+    return {"message": "Smart Support System API", "version": Config.API_VERSION}
 
 @app.get("/health")
 async def health():
